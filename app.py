@@ -13,17 +13,29 @@ init_metas()
 init_agenda()
 st.set_page_config(page_title="MyWork", layout="wide", initial_sidebar_state="collapsed")
 
+# --- ESTADO PARA BARRA INFERIOR ---
+if 'data_agenda_sel' not in st.session_state:
+    st.session_state['data_agenda_sel'] = date.today()
+if 'zoom_agenda' not in st.session_state:
+    st.session_state['zoom_agenda'] = 0
+if 'pagina' not in st.session_state:
+    st.session_state['pagina'] = 'menu'
+if 'last_drag' not in st.session_state:
+    st.session_state['last_drag'] = ""
+
 st.markdown("""
 <style>
+.stApp { background-color: #121212!important; }
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-.block-container {padding-bottom: 120px!important;}
+header {visibility: hidden;}
+.block-container {padding-top:10px!important; padding-bottom:130px!important;}
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
-<h1 style="margin-bottom:0px; padding-bottom:0px; font-weight:800;">MyWork</h1>
-<p style="color:#64748b; font-size:13px; margin-top:2px;">gestão de vendas e agenda</p>
+<h1 style="margin-bottom:0px; padding-bottom:0px; font-weight:800; color:white;">MyWork</h1>
+<p style="color:#8a8a8a; font-size:13px; margin-top:2px;">gestão de vendas e agenda</p>
 """, unsafe_allow_html=True)
 
 @st.dialog("Novo Compromisso", width="large")
@@ -206,131 +218,50 @@ if 'cliente_id' in st.session_state and st.session_state['cliente_id'] is not No
                     st.success("Visita registrada!"); st.rerun()
         st.stop()
 
-# ===== CARD DE METAS - 1 QUADRO POR VEZ COM ARRASTE =====
-qtd_hoje, venda_hoje = get_visitas_hoje()
-qtd_semana, venda_semana = get_visitas_semana()
-meta_diaria_c = int(get_config('meta_diaria_clientes'))
-meta_diaria_v = float(get_config('meta_diaria_vendas'))
-meta_semanal_c = meta_diaria_c * 5
-meta_semanal_v = meta_diaria_v * 5
-
-perc_d_c = min(100, int((qtd_hoje/meta_diaria_c*100) if meta_diaria_c>0 else 0))
-perc_d_v = min(100, int((venda_hoje/meta_diaria_v*100) if meta_diaria_v>0 else 0))
-perc_s_c = min(100, int((qtd_semana/meta_semanal_c*100) if meta_semanal_c>0 else 0))
-perc_s_v = min(100, int((venda_semana/meta_semanal_v*100) if meta_semanal_v>0 else 0))
-
-with st.container(border=True):
-    c_tit, c_btn = st.columns([3, 1.3])
-    with c_tit:
-        st.markdown("#### 🎯 Metas")
-    with c_btn:
-        if st.button("🛠️ Planejar", use_container_width=True, type="primary"):
-            modal_config_metas()
-
-    # ===== CORREÇÃO: use f''' e st.components.v1.html =====
-# No card de metas troque para:
-
-    html_metas = f'''
-    <div style="display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;" id="swipe-metas">
-        <style>
-        #swipe-metas::-webkit-scrollbar{{display:none}}
-        .pg{{min-width:100%; scroll-snap-align:center; box-sizing:border-box;}}
-        .box-card{{background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:14px;}}
-        .ttl{{text-align:center; font-weight:800; font-size:14px; margin-bottom:10px;}}
-        .row{{display:flex; gap:10px;}}
-        .b{{flex:1; background:white; border-radius:12px; padding:10px; border:1px solid #e2e8f0;}}
-        .lb{{font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;}}
-        .big{{font-size:18px; font-weight:800;}}
-        .bar{{height:8px; background:#e2e8f0; border-radius:99px; margin-top:6px; overflow:hidden;}}
-        .fill{{height:100%; border-radius:99px;}}
-        </style>
-
-        <div class="pg">
-            <div class="box-card">
-                <div class="ttl">🎯 DIÁRIA</div>
-                <div class="row">
-                    <div class="b">
-                        <div class="lb">visitas</div>
-                        <div class="big">{qtd_hoje}/{meta_diaria_c}</div>
-                        <div class="bar"><div class="fill" style="width:{perc_d_c}%; background:#2563eb;"></div></div>
-                        <div style="font-size:11px; color:#64748b; margin-top:4px;">{perc_d_c}%</div>
-                    </div>
-                    <div class="b">
-                        <div class="lb">vendas</div>
-                        <div class="big">R$ {venda_hoje:.0f}/{meta_diaria_v:.0f}</div>
-                        <div class="bar"><div class="fill" style="width:{perc_d_v}%; background:#16a34a;"></div></div>
-                        <div style="font-size:11px; color:#64748b; margin-top:4px;">{perc_d_v}%</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="pg">
-            <div class="box-card">
-                <div class="ttl">📅 SEMANAL</div>
-                <div class="row">
-                    <div class="b">
-                        <div class="lb">visitas</div>
-                        <div class="big">{qtd_semana}/{meta_semanal_c}</div>
-                        <div class="bar"><div class="fill" style="width:{perc_s_c}%; background:#2563eb;"></div></div>
-                        <div style="font-size:11px; color:#64748b; margin-top:4px;">{perc_s_c}%</div>
-                    </div>
-                    <div class="b">
-                        <div class="lb">vendas</div>
-                        <div class="big">R$ {venda_semana:.0f}/{meta_semanal_v:.0f}</div>
-                        <div class="bar"><div class="fill" style="width:{perc_s_v}%; background:#16a34a;"></div></div>
-                        <div style="font-size:11px; color:#64748b; margin-top:4px;">{perc_s_v}%</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div style="text-align:center; color:#94a3b8; font-size:11px; margin-top:8px;">👉 arraste para o lado 👉</div>
-    '''
-    st.components.v1.html(html_metas, height=200, scrolling=False)
-
-# DRAG CONTROL DA AGENDA
-if 'last_drag' not in st.session_state: st.session_state['last_drag'] = ""
-drag_valor_atual = st.session_state.get('drag_result', '')
-if drag_valor_atual and drag_valor_atual!= st.session_state['last_drag']:
-    if "DETAIL|" in drag_valor_atual or "NEW|" in drag_valor_atual or "|" in drag_valor_atual:
-        st.session_state['last_drag'] = drag_valor_atual
-        if drag_valor_atual.startswith("NEW|"):
-            _, hora_nova = drag_valor_atual.split("|")
+# CONTROLE DA BARRA INFERIOR
+st.text_input("drag", key="drag_result", label_visibility="collapsed")
+drag_val = st.session_state.get('drag_result','')
+if drag_val.startswith("NAV|"):
+    st.session_state['pagina'] = drag_val.split("|")[1]
+    st.session_state['drag_result'] = ""
+    st.rerun()
+if drag_val.startswith("DATE|"):
+    try:
+        st.session_state['data_agenda_sel'] = date.fromisoformat(drag_val.split("|")[1])
+        st.session_state['drag_result'] = ""
+        st.rerun()
+    except: pass
+if drag_val.startswith("ZOOM|"):
+    try: st.session_state['zoom_agenda'] = int(drag_val.split("|")[1])
+    except: pass
+if drag_val.startswith("NEW|") or drag_val.startswith("DETAIL|") or ("|" in drag_val and not drag_val.startswith("NAV") and not drag_val.startswith("DATE") and not drag_val.startswith("ZOOM")):
+    if 'last_drag' not in st.session_state: st.session_state['last_drag'] = ""
+    if drag_val!= st.session_state['last_drag']:
+        st.session_state['last_drag'] = drag_val
+        if drag_val.startswith("NEW|"):
+            _, hora_nova = drag_val.split("|")
             st.session_state['hora_clicada'] = hora_nova
             st.session_state['show_novo_comp'] = True
-            st.session_state['show_detalhe_comp'] = False
-            st.session_state['show_novo_cliente'] = False
-        elif drag_valor_atual.startswith("DETAIL|"):
-            _, id_str = drag_valor_atual.split("|")
+        elif drag_val.startswith("DETAIL|"):
+            _, id_str = drag_val.split("|")
             st.session_state['comp_detalhe_id'] = int(id_str)
             st.session_state['show_detalhe_comp'] = True
-            st.session_state['show_novo_comp'] = False
-            st.session_state['show_novo_cliente'] = False
-        elif "|" in drag_valor_atual:
+        elif "|" in drag_val:
             try:
-                id_mover, novo_h = drag_valor_atual.split("|")
+                id_mover, novo_h = drag_val.split("|")
                 update_horario(int(id_mover), novo_h)
                 st.toast(f"Movido para {novo_h}!")
             except: pass
 
-st.text_input("drag", key="drag_result", label_visibility="collapsed")
-
 if st.query_params.get("novo_cliente") == "1":
     st.session_state['show_novo_cliente'] = True
-    st.session_state['show_novo_comp'] = False
-    st.session_state['show_detalhe_comp'] = False
     st.query_params.clear()
     st.rerun()
-
 if st.query_params.get("novo_comp") == "1":
     st.session_state['hora_clicada'] = "08:00"
     st.session_state['show_novo_comp'] = True
-    st.session_state['show_novo_cliente'] = False
-    st.session_state['show_detalhe_comp'] = False
     st.query_params.clear()
     st.rerun()
-
 if st.session_state.get('show_detalhe_comp'):
     modal_detalhe_compromisso(st.session_state.get('comp_detalhe_id'))
 elif st.session_state.get('show_novo_cliente'):
@@ -341,34 +272,76 @@ elif st.session_state.get('show_novo_comp'):
         data_sel_modal = data_sel_modal.isoformat()
     modal_novo_compromisso(st.session_state.get('hora_clicada','08:00'), data_sel_modal)
 
-aba_lista, aba_mapa, aba_agenda = st.tabs(["📋 Lista", "🛰️ Mapa", "📅 Agenda"])
+pagina = st.session_state['pagina']
 
-with aba_lista:
+# ===== MENU - SOMENTE METAS =====
+if pagina == 'menu':
+    qtd_hoje, venda_hoje = get_visitas_hoje()
+    qtd_semana, venda_semana = get_visitas_semana()
+    meta_diaria_c = int(get_config('meta_diaria_clientes'))
+    meta_diaria_v = float(get_config('meta_diaria_vendas'))
+    meta_semanal_c = meta_diaria_c * 5
+    meta_semanal_v = meta_diaria_v * 5
+    perc_d_c = min(100, int((qtd_hoje/meta_diaria_c*100) if meta_diaria_c>0 else 0))
+    perc_d_v = min(100, int((venda_hoje/meta_diaria_v*100) if meta_diaria_v>0 else 0))
+    perc_s_c = min(100, int((qtd_semana/meta_semanal_c*100) if meta_semanal_c>0 else 0))
+    perc_s_v = min(100, int((venda_semana/meta_semanal_v*100) if meta_semanal_v>0 else 0))
+    with st.container(border=True):
+        c_tit, c_btn = st.columns([3, 1.3])
+        with c_tit:
+            st.markdown("#### 🎯 Metas")
+        with c_btn:
+            if st.button("🛠️ Planejar", use_container_width=True, type="primary"):
+                modal_config_metas()
+        html_metas = f'''
+        <div style="display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;" id="swipe-metas">
+            <style>
+            #swipe-metas::-webkit-scrollbar{{display:none}}
+           .pg{{min-width:100%; scroll-snap-align:center; box-sizing:border-box;}}
+           .box-card{{background:#1e1e1e; border:1px solid #2c2c2c; border-radius:16px; padding:14px;}}
+           .ttl{{text-align:center; font-weight:800; font-size:14px; margin-bottom:10px; color:white;}}
+           .row{{display:flex; gap:10px;}}
+           .b{{flex:1; background:#2a2a2a; border-radius:12px; padding:10px; border:1px solid #333;}}
+           .lb{{font-size:10px; font-weight:700; color:#8a8a8a; text-transform:uppercase;}}
+           .big{{font-size:18px; font-weight:800; color:white;}}
+           .bar{{height:8px; background:#121212; border-radius:99px; margin-top:6px; overflow:hidden; border:1px solid #333;}}
+           .fill{{height:100%; border-radius:99px; background:#a8d8ff;}}
+            </style>
+            <div class="pg"><div class="box-card"><div class="ttl">🎯 DIÁRIA</div><div class="row"><div class="b"><div class="lb">visitas</div><div class="big">{qtd_hoje}/{meta_diaria_c}</div><div class="bar"><div class="fill" style="width:{perc_d_c}%;"></div></div><div style="font-size:11px; color:#8a8a8a; margin-top:4px;">{perc_d_c}%</div></div><div class="b"><div class="lb">vendas</div><div class="big">R$ {venda_hoje:.0f}/{meta_diaria_v:.0f}</div><div class="bar"><div class="fill" style="width:{perc_d_v}%;"></div></div><div style="font-size:11px; color:#8a8a8a; margin-top:4px;">{perc_d_v}%</div></div></div></div></div>
+            <div class="pg"><div class="box-card"><div class="ttl">📅 SEMANAL</div><div class="row"><div class="b"><div class="lb">visitas</div><div class="big">{qtd_semana}/{meta_semanal_c}</div><div class="bar"><div class="fill" style="width:{perc_s_c}%;"></div></div><div style="font-size:11px; color:#8a8a8a; margin-top:4px;">{perc_s_c}%</div></div><div class="b"><div class="lb">vendas</div><div class="big">R$ {venda_semana:.0f}/{meta_semanal_v:.0f}</div><div class="bar"><div class="fill" style="width:{perc_s_v}%;"></div></div><div style="font-size:11px; color:#8a8a8a; margin-top:4px;">{perc_s_v}%</div></div></div></div></div>
+        </div>
+        <div style="text-align:center; color:#555; font-size:11px; margin-top:8px;">👉 arraste para o lado 👉</div>
+        '''
+        st.components.v1.html(html_metas, height=200, scrolling=False)
+
+# ===== CLIENTES - LISTA COMPLETA COM BOLINHA AZUL =====
+if pagina == 'clientes':
     df = get_clientes()
-    busca = st.text_input("🔍 Pesquisar", placeholder="Nome do cliente")
+    busca = st.text_input("🔍 Pesquisar", placeholder="Nome do cliente", key="busca_clientes")
     if busca and not df.empty: df = df[df['nome'].str.contains(busca, case=False, na=False)]
     if df.empty: st.info("Nenhum cliente. Toque no + azul para adicionar.")
     else:
         for _, row in df.iterrows():
             visitado = ja_visitou_hoje(int(row['id']))
+            cor_bola = "#22c55e" if visitado else "#3b82f6"
             with st.container(border=True):
-                st.markdown(f"{'✅' if visitado else '⬜'} **{row['nome']}**")
-                st.caption(f"{row['endereco'] or 'Sem endereço'}")
+                st.markdown(f"""
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div><div style="color:white; font-weight:700;">{'✅' if visitado else '⬜'} {row['nome']}</div><div style="color:#8a8a8a; font-size:12px;">{row['endereco'] or 'Sem endereço'}</div></div>
+                    <div style="width:12px; height:12px; background:{cor_bola}; border-radius:50%; box-shadow:0 0 8px {cor_bola};"></div>
+                </div>
+                """, unsafe_allow_html=True)
                 c1, c2 = st.columns(2)
                 with c1:
                     if st.button("👁️ Ver / Vender", key=f"ver_{row['id']}", use_container_width=True):
                         st.session_state['cliente_id'] = int(row['id']); st.rerun()
                 with c2: st.write("✅ Visitado" if visitado else "⬜ Pendente")
     st.markdown("""
-    <a href="?novo_cliente=1" target="_self" style="
-        position: fixed; bottom: 30px; right: 22px; width: 64px; height: 64px;
-        border-radius: 50%; background: #2563eb; color: white; font-size: 36px;
-        font-weight: 300; display: flex; align-items: center; justify-content: center;
-        text-decoration: none; z-index: 9999999; box-shadow: 0 6px 20px rgba(37,99,235,0.5); line-height: 1;
-    ">+</a>
+    <a href="?novo_cliente=1" target="_self" style="position: fixed; bottom: 95px; right: 18px; width: 56px; height: 56px; border-radius: 50%; background: #a8d8ff; color: #121212; font-size: 32px; font-weight: 300; display: flex; align-items: center; justify-content: center; text-decoration: none; z-index: 999999; box-shadow: 0 6px 18px rgba(168,216,255,0.5);">+</a>
     """, unsafe_allow_html=True)
 
-with aba_mapa:
+# ===== MAPA - MAPA GERAL =====
+if pagina == 'mapa':
     df_all = get_clientes()
     df_loc = df_all.dropna(subset=['lat', 'lng'])
     amanha_str = (date.today() + timedelta(days=1)).isoformat()
@@ -393,215 +366,83 @@ with aba_mapa:
             st.rerun()
         except: pass
 
-with aba_agenda:
-    if 'data_agenda_sel' not in st.session_state:
-        st.session_state['data_agenda_sel'] = date.today()
-    if 'zoom_agenda' not in st.session_state:
-        st.session_state['zoom_agenda'] = 0 # 0=15min 1=30min 2=60min 3=120min
-
+# ===== AGENDA - CONFIGURACAO COMPLETA ORIGINAL =====
+if pagina == 'agenda':
     data_hoje = date.today()
     data_sel = st.session_state['data_agenda_sel']
     inicio_semana = data_sel - timedelta(days=data_sel.weekday())
     fim_semana = inicio_semana + timedelta(days=6)
-
-    # --- CONTROLE DE DATA VIA DRAG INPUT ---
-    drag_val = st.session_state.get('drag_result','')
-    if drag_val.startswith("DATE|"):
-        try:
-            nova_data = date.fromisoformat(drag_val.split("|")[1])
-            st.session_state['data_agenda_sel'] = nova_data
-            st.rerun()
-        except: pass
-    if drag_val.startswith("ZOOM|"):
-        try:
-            st.session_state['zoom_agenda'] = int(drag_val.split("|")[1])
-        except: pass
-
-    # Header semana com setas
     c_ant, c_mid, c_prox = st.columns([1, 3, 1])
     with c_ant:
         if st.button("◀️", use_container_width=True, key="sem_ant"):
             st.session_state['data_agenda_sel'] = inicio_semana - timedelta(days=7)
             st.rerun()
     with c_mid:
-        st.markdown(f"<div style='text-align:center; padding:6px; font-weight:800; font-size:13px; background:#f1f5f9; border-radius:10px;'>{inicio_semana.strftime('%d/%m')} - {fim_semana.strftime('%d/%m')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='text-align:center; padding:6px; font-weight:800; font-size:13px; background:#1e1e1e; border:1px solid #2c2c2c; border-radius:10px; color:white;'>{inicio_semana.strftime('%d/%m')} - {fim_semana.strftime('%d/%m')}</div>", unsafe_allow_html=True)
     with c_prox:
         if st.button("▶️", use_container_width=True, key="sem_prox"):
             st.session_state['data_agenda_sel'] = inicio_semana + timedelta(days=7)
             st.rerun()
-
-    # Gera HTML da semana em RETANGULO com 7 quadrados lado a lado
     dias_nomes = ["SEG","TER","QUA","QUI","SEX","SAB","DOM"]
     dias_html = ""
     for i in range(7):
         dia = inicio_semana + timedelta(days=i)
         qtd = len(get_compromissos(dia.isoformat()))
         is_sel = dia == data_sel
-        is_hoje = dia == data_hoje
-        bg = "#2563eb" if is_sel else "white"
-        color = "white" if is_sel else "#334155"
-        borda = "2px solid #2563eb" if is_sel else "1px solid #e2e8f0"
-        dias_html += f"""
-        <div class="dia" data-date="{dia.isoformat()}" style="min-width:48px; flex:1; height:62px; background:{bg}; color:{color}; border:{borda}; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; position:relative;">
-            <div style="font-size:10px; font-weight:800;">{dias_nomes[i]}</div>
-            <div style="font-size:18px; font-weight:900; line-height:1;">{dia.day}</div>
-            <div style="font-size:10px; margin-top:2px;">{'•'*min(qtd,3) if qtd>0 else ''}</div>
-            { '<div style="position:absolute; bottom:-4px; width:18px; height:4px; background:#2563eb; border-radius:99px;"></div>' if is_hoje else '' }
-        </div>
-        """
-
+        bg = "#2c2c2c"
+        color = "white" if is_sel else "#9a9a9a"
+        borda = "2px solid #a8d8ff" if is_sel else "1px solid #2c2c2c"
+        dias_html += f"""<div class="dia" data-date="{dia.isoformat()}" style="min-width:48px; flex:1; height:62px; background:{bg}; color:{color}; border:{borda}; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer;"><div style="font-size:10px; font-weight:800;">{dias_nomes[i]}</div><div style="font-size:18px; font-weight:900;">{dia.day}</div><div style="font-size:10px;">{'•'*min(qtd,3) if qtd>0 else ''}</div></div>"""
     data_str = data_sel.isoformat()
     compromissos = get_compromissos(data_str)
     compromissos_json = json.dumps(compromissos)
     zoom_atual = st.session_state.get('zoom_agenda',0)
-
     html_code = f"""
-    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:8px; margin:10px 0 12px 0;">
+    <div style="background:#1a1a1a; border:1px solid #2c2c2c; border-radius:14px; padding:8px; margin:10px 0 12px 0;">
         <div id="semana-row" style="display:flex; gap:6px; overflow-x:auto; scrollbar-width:none;">{dias_html}</div>
     </div>
-
     <div style="display:flex; justify-content:space-between; align-items:center; margin:6px 2px;">
-        <div style="font-size:12px; color:#64748b;">📅 <b>{data_sel.strftime('%A %d/%m')}</b> • pinça com 2 dedos pra zoom</div>
+        <div style="font-size:12px; color:#8a8a8a;">📅 <b style="color:white;">{data_sel.strftime('%A %d/%m')}</b> • pinça 2 dedos pra zoom</div>
         <div style="display:flex; gap:6px;">
-            <button id="btn-zoom-out" style="width:32px; height:32px; border-radius:8px; border:1px solid #e2e8f0; background:white; font-weight:800;">-</button>
-            <button id="btn-zoom-in" style="width:32px; height:32px; border-radius:8px; border:1px solid #e2e8f0; background:white; font-weight:800;">+</button>
+            <button id="btn-zoom-out" style="width:32px; height:32px; border-radius:8px; border:1px solid #333; background:#2c2c2c; color:white; font-weight:800;">-</button>
+            <button id="btn-zoom-in" style="width:32px; height:32px; border-radius:8px; border:1px solid #333; background:#2c2c2c; color:white; font-weight:800;">+</button>
         </div>
     </div>
-
-    <div id="agenda-container" style="border:1.5px solid #ddd; border-radius:12px; font-family:sans-serif; background:white; overflow:hidden; user-select:none; touch-action:pan-y;">
+    <div id="agenda-container" style="border:1px solid #2c2c2c; border-radius:12px; background:#121212; overflow:hidden;">
         <div id="timeline" style="position:relative;"></div>
     </div>
-
-    <style>
-   .slot{{box-sizing:border-box; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; cursor:pointer;}}
-   .comp-card{{position:absolute; left:70px; right:6px; border-radius:10px; padding:8px 10px; cursor:pointer; border:1.5px solid #cbd5e1; border-left:6px solid #3b82f6; z-index:10; touch-action:none; box-shadow:0 2px 8px rgba(0,0,0,0.12); font-size:12px; overflow:hidden; user-select:none; box-sizing:border-box; line-height:1.2;}}
-   .dragging{{opacity:0.9; z-index:100!important; box-shadow:0 12px 24px rgba(0,0,0,0.2)!important; transform:scale(1.03)!important;}}
-    </style>
-
+    <style>.slot{{box-sizing:border-box; border-bottom:1px solid #1e1e1e; display:flex; align-items:center; cursor:pointer; height:65px;}}.comp-card{{position:absolute; left:62px; right:6px; border-radius:4px; padding:8px 10px; background:#3a3a3a; color:#e8e8e8; border-left:4px solid #a8d8ff; z-index:10; font-size:12px; font-weight:600;}}</style>
     <script>
     let zoomLevel = {zoom_atual};
-    const zoomSteps = [15, 30, 60, 120];
-    const SLOT_H = 65;
-    const comps = {compromissos_json};
-
-    const cores = {{"visita":"#dbeafe","viagem":"#f1f5f9","evento":"#ede9fe","outros":"#dcfce7","almoco":"#fef3c7"}};
-    const borda = {{"visita":"#3b82f6","viagem":"#64748b","evento":"#8b5cf6","outros":"#22c55e","almoco":"#f59e0b"}};
+    const zoomSteps = [15, 30, 60, 120]; const SLOT_H = 65; const comps = {compromissos_json};
+    const borda = {{"visita":"#f472b6","viagem":"#9ca3af","evento":"#a78bfa","outros":"#facc15","almoco":"#fb7185"}};
     const labels = {{"visita":"👤","viagem":"🚗","evento":"🎉","outros":"📝","almoco":"🍽️"}};
     const timeline = document.getElementById('timeline');
-
     function horaParaMin(h){{ const [hh,mm]=h.split(':').map(Number); return hh*60+mm; }}
     function minParaHora(m){{ const hh=Math.floor(m/60); const mm=m%60; return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0'); }}
-    function sendToStreamlit(value) {{
-        const input = window.parent.document.querySelector('input[aria-label="drag"]');
-        if (!input) return;
-        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-        nativeSetter.call(input, value);
-        input.dispatchEvent(new Event('input', {{bubbles:true}}));
-        input.dispatchEvent(new Event('change', {{bubbles:true}}));
-        input.dispatchEvent(new KeyboardEvent('keydown', {{bubbles:true, key:'Enter', code:'Enter', keyCode:13}}));
-    }}
-
-    function renderTimeline(){{
-        timeline.innerHTML = '';
-        const interval = zoomSteps[zoomLevel];
-        let h=6, m=0;
-        const slots=[];
-        while(h < 20 || (h==20 && m==0)){{
-            slots.push(`${{String(h).padStart(2,'0')}}:${{String(m).padStart(2,'0')}}`);
-            m+=interval; if(m>=60){{ m=0; h+=1; }}
-        }}
-        slots.forEach(horario => {{
-            const div = document.createElement('div');
-            div.className='slot';
-            div.dataset.hora=horario;
-            div.style.height=SLOT_H+'px';
-            div.innerHTML=`<div style="width:62px; min-width:62px; text-align:center; background:#f8fafc; height:100%; display:flex; align-items:center; justify-content:center; border-right:2px solid #e2e8f0; font-weight:800; font-size:12px; color:#334155;">${{horario}}</div><div style="flex:1; height:100%; display:flex; align-items:center; padding-left:10px; color:#e2e8f0; font-size:11px;">•</div>`;
-            div.addEventListener('click', (e)=>{{ if(e.target.closest('.comp-card')) return; sendToStreamlit('NEW|'+horario); }});
-            timeline.appendChild(div);
-        }});
-
-        comps.forEach(comp => {{
-            const iniMin = horaParaMin(comp.hora_inicio);
-            if(iniMin < 6*60 || iniMin > 20*60) return;
-            const offsetTop = ((iniMin - 6*60)/interval)*SLOT_H;
-            const height = Math.max(24, (comp.duracao/interval)*SLOT_H - 6);
-            const fimMin = iniMin + comp.duracao;
-            const div = document.createElement('div');
-            div.className='comp-card';
-            div.style.top=offsetTop+'px';
-            div.style.height=height+'px';
-            div.style.background=cores[comp.tipo] || '#fff';
-            div.style.borderLeftColor=borda[comp.tipo] || '#3b82f6';
-            div.innerHTML=`<b>${{labels[comp.tipo]}} ${{comp.titulo}}</b><br><span style="font-size:11px; opacity:0.8;">⏰ ${{comp.hora_inicio}} - ${{minParaHora(fimMin)}} • ${{comp.duracao}}min</span>`;
-            let isDragging=false, startY=0, startTop=0, moved=false;
-            div.addEventListener('pointerdown', (e)=>{{
-                isDragging=true; moved=false; startY=e.clientY; startTop=parseInt(div.style.top)||0;
-                div.classList.add('dragging'); div.setPointerCapture(e.pointerId); e.preventDefault(); e.stopPropagation();
-            }});
-            div.addEventListener('pointermove', (e)=>{{
-                if(!isDragging) return;
-                const diff=e.clientY-startY;
-                if(Math.abs(diff)>6) moved=true;
-                let newTop=startTop+diff;
-                if(newTop<0) newTop=0;
-                div.style.top=newTop+'px';
-            }});
-            div.addEventListener('pointerup', (e)=>{{
-                if(!isDragging) return;
-                isDragging=false; div.classList.remove('dragging');
-                try{{ div.releasePointerCapture(e.pointerId); }}catch(_ ){{}}
-                if(!moved){{ sendToStreamlit('DETAIL|'+comp.id); return; }}
-                const newTop=parseInt(div.style.top)||0;
-                let slotIndex=Math.round(newTop/SLOT_H);
-                let newMin=6*60+slotIndex*interval;
-                if(newMin<6*60) newMin=6*60;
-                if(newMin+comp.duracao>20*60+15) newMin=20*60+15-comp.duracao;
-                const snappedTop=((newMin-6*60)/interval)*SLOT_H;
-                div.style.top=snappedTop+'px';
-                const novoH=minParaHora(newMin);
-                if(novoH!==comp.hora_inicio) sendToStreamlit(comp.id+'|'+novoH);
-                e.stopPropagation();
-            }});
-            timeline.appendChild(div);
-        }});
-    }}
-
-    // Zoom botoes
-    document.getElementById('btn-zoom-in').onclick = ()=>{{ if(zoomLevel>0){{ zoomLevel--; renderTimeline(); sendToStreamlit('ZOOM|'+zoomLevel); }} }};
-    document.getElementById('btn-zoom-out').onclick = ()=>{{ if(zoomLevel<zoomSteps.length-1){{ zoomLevel++; renderTimeline(); sendToStreamlit('ZOOM|'+zoomLevel); }} }};
-
-    // Pinch to zoom
-    let lastDist=0;
-    timeline.addEventListener('touchstart', (e)=>{{ if(e.touches.length==2){{ lastDist=Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY); }} }}, {{passive:false}});
-    timeline.addEventListener('touchmove', (e)=>{{
-        if(e.touches.length==2){{
-            e.preventDefault();
-            const dist=Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY);
-            if(Math.abs(dist-lastDist)>30){{
-                if(dist>lastDist && zoomLevel>0) zoomLevel--; // abre = mais detalhe
-                else if(dist<lastDist && zoomLevel<zoomSteps.length-1) zoomLevel++;
-                renderTimeline();
-                sendToStreamlit('ZOOM|'+zoomLevel);
-                lastDist=dist;
-            }}
-        }}
-    }}, {{passive:false}});
-
-    // Dias da semana clique
-    document.querySelectorAll('.dia').forEach(el=>{{
-        el.addEventListener('click', ()=>{{ sendToStreamlit('DATE|'+el.dataset.date); }});
-    }});
-
-    renderTimeline();
+    function send(v){{ const input = window.parent.document.querySelector('input[aria-label="drag"]'); if(!input) return; const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; setter.call(input, v); input.dispatchEvent(new Event('input',{{bubbles:true}})); input.dispatchEvent(new Event('change',{{bubbles:true}})); input.dispatchEvent(new KeyboardEvent('keydown',{{bubbles:true, key:'Enter'}})); }}
+    function render(){{ timeline.innerHTML=''; const interval=zoomSteps[zoomLevel]; let h=6,m=0; const slots=[]; while(h<20 || (h==20 && m==0)){{ slots.push(String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')); m+=interval; if(m>=60){{ m=0; h++; }} }} slots.forEach(hor=>{{ const div=document.createElement('div'); div.className='slot'; div.dataset.hora=hor; div.innerHTML=`<div style="width:62px; background:#121212; height:100%; display:flex; align-items:center; justify-content:center; border-right:1px solid #1e1e1e; color:#555; font-size:12px; font-weight:700;">${{hor}}</div><div style="flex:1;"></div>`; div.addEventListener('click',()=>{{ send('NEW|'+hor); }}); timeline.appendChild(div); }}); comps.forEach(c=>{{ const ini=horaParaMin(c.hora_inicio); const top=((ini-6*60)/interval)*SLOT_H; const hh=Math.max(28,(c.duracao/interval)*SLOT_H-4); const fim=ini+c.duracao; const div=document.createElement('div'); div.className='comp-card'; div.style.top=top+'px'; div.style.height=hh+'px'; div.style.borderLeftColor=borda[c.tipo]||'#a8d8ff'; div.innerHTML=`${{labels[c.tipo]}} ${{c.titulo}} <span style="color:#aaa;">${{c.hora_inicio}} - ${{minParaHora(fim)}}</span>`; let drag=false,sY=0,sT=0,mov=false; div.addEventListener('pointerdown',e=>{{ drag=true; mov=false; sY=e.clientY; sT=parseInt(div.style.top)||0; e.preventDefault(); }}); div.addEventListener('pointermove',e=>{{ if(!drag) return; const diff=e.clientY-sY; if(Math.abs(diff)>6) mov=true; div.style.top=(sT+diff)+'px'; }}); div.addEventListener('pointerup',e=>{{ if(!drag) return; drag=false; if(!mov){{ send('DETAIL|'+c.id); return; }} const newTop=parseInt(div.style.top)||0; let idx=Math.round(newTop/SLOT_H); let newMin=6*60+idx*interval; const newH=minParaHora(newMin); if(newH!==c.hora_inicio) send(c.id+'|'+newH); }}); timeline.appendChild(div); }}); }}
+    document.getElementById('btn-zoom-in').onclick=()=>{{ if(zoomLevel>0){{ zoomLevel--; render(); send('ZOOM|'+zoomLevel); }} }}; document.getElementById('btn-zoom-out').onclick=()=>{{ if(zoomLevel<3){{ zoomLevel++; render(); send('ZOOM|'+zoomLevel); }} }};
+    let last=0; timeline.addEventListener('touchstart',e=>{{ if(e.touches.length==2) last=Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY); }},{{passive:false}});
+    timeline.addEventListener('touchmove',e=>{{ if(e.touches.length==2){{ e.preventDefault(); const d=Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY); if(Math.abs(d-last)>28){{ if(d>last && zoomLevel>0) zoomLevel--; else if(d<last && zoomLevel<3) zoomLevel++; render(); send('ZOOM|'+zoomLevel); last=d; }} }} }},{{passive:false}});
+    document.querySelectorAll('.dia').forEach(el=>{{ el.addEventListener('click',()=>{{ send('DATE|'+el.dataset.date); }}); }}); render();
     </script>
     """
     st.components.v1.html(html_code, height=900, scrolling=True)
+    st.markdown("""<a href="?novo_comp=1" target="_self" style="position: fixed; bottom: 88px; right: 18px; width: 56px; height: 56px; border-radius: 50%; background: #a8d8ff; color: #121212; font-size: 32px; display: flex; align-items: center; justify-content: center; text-decoration: none; z-index: 999999; box-shadow: 0 6px 18px rgba(168,216,255,0.5);">+</a>""", unsafe_allow_html=True)
 
-    st.markdown("""
-    <a href="?novo_comp=1" target="_self" style="
-        position: fixed; bottom: 30px; right: 22px; width: 64px; height: 64px;
-        border-radius: 50%; background: #ea580c; color: white; font-size: 32px;
-        font-weight: 300; display: flex; align-items: center; justify-content: center;
-        text-decoration: none; z-index: 9999999; box-shadow: 0 6px 20px rgba(234,88,12,0.5); line-height: 1;
-    ">+</a>
-    """, unsafe_allow_html=True)
+# RETANGULO INFERIOR COM 4 QUADRADOS - ICONES APENAS
+pagina_atual = st.session_state['pagina']
+nav_html = f"""
+<div style="position:fixed; bottom:12px; left:12px; right:12px; height:72px; background:#1f1f1f; border:1px solid #2c2c2c; border-radius:18px; display:flex; justify-content:space-around; align-items:center; z-index:9999999; box-shadow:0 8px 24px rgba(0,0,0,0.6);">
+    <div class="item-nav" data-page="menu" style="width:56px; height:56px; background:{'#2c2c2c' if pagina_atual!='menu' else '#a8d8ff'}; border:2px solid {'#333' if pagina_atual!='menu' else '#a8d8ff'}; border-radius:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:24px; color:{'#8a8a8a' if pagina_atual!='menu' else '#121212'};">☰</div>
+    <div class="item-nav" data-page="clientes" style="width:56px; height:56px; background:{'#2c2c2c' if pagina_atual!='clientes' else '#a8d8ff'}; border:2px solid {'#333' if pagina_atual!='clientes' else '#a8d8ff'}; border-radius:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:24px; color:{'#8a8a8a' if pagina_atual!='clientes' else '#121212'};">👥</div>
+    <div class="item-nav" data-page="agenda" style="width:56px; height:56px; background:{'#2c2c2c' if pagina_atual!='agenda' else '#a8d8ff'}; border:2px solid {'#333' if pagina_atual!='agenda' else '#a8d8ff'}; border-radius:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:24px; color:{'#8a8a8a' if pagina_atual!='agenda' else '#121212'};">📅</div>
+    <div class="item-nav" data-page="mapa" style="width:56px; height:56px; background:{'#2c2c2c' if pagina_atual!='mapa' else '#a8d8ff'}; border:2px solid {'#333' if pagina_atual!='mapa' else '#a8d8ff'}; border-radius:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:24px; color:{'#8a8a8a' if pagina_atual!='mapa' else '#121212'};">📍</div>
+</div>
+<script>
+function sendNav(v){{ const input = window.parent.document.querySelector('input[aria-label="drag"]'); if(!input) return; const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; setter.call(input, v); input.dispatchEvent(new Event('input',{{bubbles:true}})); input.dispatchEvent(new Event('change',{{bubbles:true}})); input.dispatchEvent(new KeyboardEvent('keydown',{{bubbles:true,key:'Enter'}})); }}
+document.querySelectorAll('.item-nav').forEach(el=>{{ el.addEventListener('click',()=>{{ sendNav('NAV|'+el.dataset.page); }}); }});
+</script>
+"""
+st.components.v1.html(nav_html, height=90, scrolling=False)
