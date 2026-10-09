@@ -396,57 +396,99 @@ with aba_mapa:
 with aba_agenda:
     if 'data_agenda_sel' not in st.session_state:
         st.session_state['data_agenda_sel'] = date.today()
+    if 'zoom_agenda' not in st.session_state:
+        st.session_state['zoom_agenda'] = 0 # 0=15min 1=30min 2=60min 3=120min
+
     data_hoje = date.today()
     data_sel = st.session_state['data_agenda_sel']
     inicio_semana = data_sel - timedelta(days=data_sel.weekday())
-    st.markdown("##### 📅 Semana")
-    col_ant, col_label, col_prox = st.columns([1, 2, 1])
-    with col_ant:
-        if st.button("◀️", use_container_width=True):
-            st.session_state['data_agenda_sel'] = inicio_semana - timedelta(days=7); st.rerun()
-    with col_label:
-        fim_semana = inicio_semana + timedelta(days=6)
-        st.markdown(f"<div style='text-align:center; padding:8px; font-weight:bold;'>{inicio_semana.strftime('%d/%m')} - {fim_semana.strftime('%d/%m/%Y')}</div>", unsafe_allow_html=True)
-    with col_prox:
-        if st.button("▶️", use_container_width=True):
-            st.session_state['data_agenda_sel'] = inicio_semana + timedelta(days=7); st.rerun()
-    dias_nomes = ["SEG", "TER", "QUA", "QUI", "SEX", "SAB", "DOM"]
-    cols = st.columns(7)
+    fim_semana = inicio_semana + timedelta(days=6)
+
+    # --- CONTROLE DE DATA VIA DRAG INPUT ---
+    drag_val = st.session_state.get('drag_result','')
+    if drag_val.startswith("DATE|"):
+        try:
+            nova_data = date.fromisoformat(drag_val.split("|")[1])
+            st.session_state['data_agenda_sel'] = nova_data
+            st.rerun()
+        except: pass
+    if drag_val.startswith("ZOOM|"):
+        try:
+            st.session_state['zoom_agenda'] = int(drag_val.split("|")[1])
+        except: pass
+
+    # Header semana com setas
+    c_ant, c_mid, c_prox = st.columns([1, 3, 1])
+    with c_ant:
+        if st.button("◀️", use_container_width=True, key="sem_ant"):
+            st.session_state['data_agenda_sel'] = inicio_semana - timedelta(days=7)
+            st.rerun()
+    with c_mid:
+        st.markdown(f"<div style='text-align:center; padding:6px; font-weight:800; font-size:13px; background:#f1f5f9; border-radius:10px;'>{inicio_semana.strftime('%d/%m')} - {fim_semana.strftime('%d/%m')}</div>", unsafe_allow_html=True)
+    with c_prox:
+        if st.button("▶️", use_container_width=True, key="sem_prox"):
+            st.session_state['data_agenda_sel'] = inicio_semana + timedelta(days=7)
+            st.rerun()
+
+    # Gera HTML da semana em RETANGULO com 7 quadrados lado a lado
+    dias_nomes = ["SEG","TER","QUA","QUI","SEX","SAB","DOM"]
+    dias_html = ""
     for i in range(7):
         dia = inicio_semana + timedelta(days=i)
-        with cols[i]:
-            qtd_comps = len(get_compromissos(dia.isoformat()))
-            label = f"{dias_nomes[i]}\n{dia.day}\n{'•'*min(qtd_comps,3)}"
-            tipo_btn = "primary" if dia==data_sel else "secondary"
-            if st.button(label, key=f"dia_{dia.isoformat()}", use_container_width=True, type=tipo_btn):
-                st.session_state['data_agenda_sel'] = dia; st.rerun()
-            if dia==data_hoje: st.caption("hoje")
+        qtd = len(get_compromissos(dia.isoformat()))
+        is_sel = dia == data_sel
+        is_hoje = dia == data_hoje
+        bg = "#2563eb" if is_sel else "white"
+        color = "white" if is_sel else "#334155"
+        borda = "2px solid #2563eb" if is_sel else "1px solid #e2e8f0"
+        dias_html += f"""
+        <div class="dia" data-date="{dia.isoformat()}" style="min-width:48px; flex:1; height:62px; background:{bg}; color:{color}; border:{borda}; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; position:relative;">
+            <div style="font-size:10px; font-weight:800;">{dias_nomes[i]}</div>
+            <div style="font-size:18px; font-weight:900; line-height:1;">{dia.day}</div>
+            <div style="font-size:10px; margin-top:2px;">{'•'*min(qtd,3) if qtd>0 else ''}</div>
+            { '<div style="position:absolute; bottom:-4px; width:18px; height:4px; background:#2563eb; border-radius:99px;"></div>' if is_hoje else '' }
+        </div>
+        """
+
     data_str = data_sel.isoformat()
-    st.caption(f"Agenda de **{data_sel.strftime('%A %d/%m/%Y')}**")
     compromissos = get_compromissos(data_str)
-    horarios = []
-    h=6; m=0
-    while h < 20 or (h==20 and m==0):
-        horarios.append(f"{h:02d}:{m:02d}"); m+=15
-        if m>=60: m=0; h+=1
     compromissos_json = json.dumps(compromissos)
+    zoom_atual = st.session_state.get('zoom_agenda',0)
+
     html_code = f"""
-    <div id="agenda-container" style="border:1.5px solid #ddd; border-radius:12px; font-family:sans-serif; background:white; overflow:hidden; user-select:none;">
-        <div id="timeline" style="position:relative;">
-            {"".join([f'<div class="slot" data-hora="{h}" style="height:65px; box-sizing:border-box; border-bottom:1px solid #eee; display:flex; align-items:center; cursor:pointer;"><div style="width:62px; min-width:62px; text-align:center; background:#f8fafc; height:100%; display:flex; align-items:center; justify-content:center; border-right:2px solid #e2e8f0; font-weight:800; font-size:12px; color:#334155;">{h}</div><div style="flex:1; height:100%; display:flex; align-items:center; padding-left:10px; color:#94a3b8; font-size:11px; font-weight:600;">TOQUE PARA ADD</div></div>' for h in horarios])}
+    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:8px; margin:10px 0 12px 0;">
+        <div id="semana-row" style="display:flex; gap:6px; overflow-x:auto; scrollbar-width:none;">{dias_html}</div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin:6px 2px;">
+        <div style="font-size:12px; color:#64748b;">📅 <b>{data_sel.strftime('%A %d/%m')}</b> • pinça com 2 dedos pra zoom</div>
+        <div style="display:flex; gap:6px;">
+            <button id="btn-zoom-out" style="width:32px; height:32px; border-radius:8px; border:1px solid #e2e8f0; background:white; font-weight:800;">-</button>
+            <button id="btn-zoom-in" style="width:32px; height:32px; border-radius:8px; border:1px solid #e2e8f0; background:white; font-weight:800;">+</button>
         </div>
     </div>
+
+    <div id="agenda-container" style="border:1.5px solid #ddd; border-radius:12px; font-family:sans-serif; background:white; overflow:hidden; user-select:none; touch-action:pan-y;">
+        <div id="timeline" style="position:relative;"></div>
+    </div>
+
     <style>
-.comp-card {{ position:absolute; left:70px; right:6px; border-radius:10px; padding:10px 12px; cursor:pointer; border:1.5px solid #cbd5e1; border-left:6px solid #3b82f6; z-index:10; touch-action:none; box-shadow:0 2px 8px rgba(0,0,0,0.12); font-size:13px; overflow:hidden; user-select:none; box-sizing:border-box; line-height:1.3; }}
-.dragging {{ opacity:0.9; z-index:100!important; box-shadow:0 12px 24px rgba(0,0,0,0.2)!important; transform:scale(1.03)!important; }}
+   .slot{{box-sizing:border-box; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; cursor:pointer;}}
+   .comp-card{{position:absolute; left:70px; right:6px; border-radius:10px; padding:8px 10px; cursor:pointer; border:1.5px solid #cbd5e1; border-left:6px solid #3b82f6; z-index:10; touch-action:none; box-shadow:0 2px 8px rgba(0,0,0,0.12); font-size:12px; overflow:hidden; user-select:none; box-sizing:border-box; line-height:1.2;}}
+   .dragging{{opacity:0.9; z-index:100!important; box-shadow:0 12px 24px rgba(0,0,0,0.2)!important; transform:scale(1.03)!important;}}
     </style>
+
     <script>
+    let zoomLevel = {zoom_atual};
+    const zoomSteps = [15, 30, 60, 120];
     const SLOT_H = 65;
     const comps = {compromissos_json};
+
     const cores = {{"visita":"#dbeafe","viagem":"#f1f5f9","evento":"#ede9fe","outros":"#dcfce7","almoco":"#fef3c7"}};
     const borda = {{"visita":"#3b82f6","viagem":"#64748b","evento":"#8b5cf6","outros":"#22c55e","almoco":"#f59e0b"}};
     const labels = {{"visita":"👤","viagem":"🚗","evento":"🎉","outros":"📝","almoco":"🍽️"}};
     const timeline = document.getElementById('timeline');
+
     function horaParaMin(h){{ const [hh,mm]=h.split(':').map(Number); return hh*60+mm; }}
     function minParaHora(m){{ const hh=Math.floor(m/60); const mm=m%60; return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0'); }}
     function sendToStreamlit(value) {{
@@ -458,61 +500,103 @@ with aba_agenda:
         input.dispatchEvent(new Event('change', {{bubbles:true}}));
         input.dispatchEvent(new KeyboardEvent('keydown', {{bubbles:true, key:'Enter', code:'Enter', keyCode:13}}));
     }}
-    comps.forEach(comp => {{
-        const iniMin = horaParaMin(comp.hora_inicio);
-        const offsetTop = ((iniMin - 6*60)/15)*SLOT_H;
-        const height = (comp.duracao/15)*SLOT_H - 6;
-        const fimMin = iniMin + comp.duracao;
-        const div = document.createElement('div');
-        div.className = 'comp-card';
-        div.style.top = offsetTop+'px';
-        div.style.height = height+'px';
-        div.style.background = cores[comp.tipo] || '#fff';
-        div.style.borderLeftColor = borda[comp.tipo] || '#3b82f6';
-        div.innerHTML = `<b>${{labels[comp.tipo]}} ${{comp.titulo}}</b><br><span style="font-size:11px; opacity:0.8;">⏰ ${{comp.hora_inicio}} - ${{minParaHora(fimMin)}} • ${{comp.duracao}}min</span><br><span style="font-size:10px; color:#64748b;">👆 Toque para detalhes</span>`;
-        let isDragging=false, startY=0, startTop=0, moved=false;
-        div.addEventListener('pointerdown', (e) => {{
-            isDragging=true; moved=false; startY=e.clientY; startTop=parseInt(div.style.top)||0;
-            div.classList.add('dragging'); div.setPointerCapture(e.pointerId); e.preventDefault(); e.stopPropagation();
+
+    function renderTimeline(){{
+        timeline.innerHTML = '';
+        const interval = zoomSteps[zoomLevel];
+        let h=6, m=0;
+        const slots=[];
+        while(h < 20 || (h==20 && m==0)){{
+            slots.push(`${{String(h).padStart(2,'0')}}:${{String(m).padStart(2,'0')}}`);
+            m+=interval; if(m>=60){{ m=0; h+=1; }}
+        }}
+        slots.forEach(horario => {{
+            const div = document.createElement('div');
+            div.className='slot';
+            div.dataset.hora=horario;
+            div.style.height=SLOT_H+'px';
+            div.innerHTML=`<div style="width:62px; min-width:62px; text-align:center; background:#f8fafc; height:100%; display:flex; align-items:center; justify-content:center; border-right:2px solid #e2e8f0; font-weight:800; font-size:12px; color:#334155;">${{horario}}</div><div style="flex:1; height:100%; display:flex; align-items:center; padding-left:10px; color:#e2e8f0; font-size:11px;">•</div>`;
+            div.addEventListener('click', (e)=>{{ if(e.target.closest('.comp-card')) return; sendToStreamlit('NEW|'+horario); }});
+            timeline.appendChild(div);
         }});
-        div.addEventListener('pointermove', (e) => {{
-            if(!isDragging) return;
-            const diff=e.clientY-startY;
-            if(Math.abs(diff)>6) moved=true;
-            let newTop=startTop+diff;
-            if(newTop<0) newTop=0;
-            const maxTop=(14*4*SLOT_H)-height;
-            if(newTop>maxTop) newTop=maxTop;
-            div.style.top=newTop+'px';
+
+        comps.forEach(comp => {{
+            const iniMin = horaParaMin(comp.hora_inicio);
+            if(iniMin < 6*60 || iniMin > 20*60) return;
+            const offsetTop = ((iniMin - 6*60)/interval)*SLOT_H;
+            const height = Math.max(24, (comp.duracao/interval)*SLOT_H - 6);
+            const fimMin = iniMin + comp.duracao;
+            const div = document.createElement('div');
+            div.className='comp-card';
+            div.style.top=offsetTop+'px';
+            div.style.height=height+'px';
+            div.style.background=cores[comp.tipo] || '#fff';
+            div.style.borderLeftColor=borda[comp.tipo] || '#3b82f6';
+            div.innerHTML=`<b>${{labels[comp.tipo]}} ${{comp.titulo}}</b><br><span style="font-size:11px; opacity:0.8;">⏰ ${{comp.hora_inicio}} - ${{minParaHora(fimMin)}} • ${{comp.duracao}}min</span>`;
+            let isDragging=false, startY=0, startTop=0, moved=false;
+            div.addEventListener('pointerdown', (e)=>{{
+                isDragging=true; moved=false; startY=e.clientY; startTop=parseInt(div.style.top)||0;
+                div.classList.add('dragging'); div.setPointerCapture(e.pointerId); e.preventDefault(); e.stopPropagation();
+            }});
+            div.addEventListener('pointermove', (e)=>{{
+                if(!isDragging) return;
+                const diff=e.clientY-startY;
+                if(Math.abs(diff)>6) moved=true;
+                let newTop=startTop+diff;
+                if(newTop<0) newTop=0;
+                div.style.top=newTop+'px';
+            }});
+            div.addEventListener('pointerup', (e)=>{{
+                if(!isDragging) return;
+                isDragging=false; div.classList.remove('dragging');
+                try{{ div.releasePointerCapture(e.pointerId); }}catch(_ ){{}}
+                if(!moved){{ sendToStreamlit('DETAIL|'+comp.id); return; }}
+                const newTop=parseInt(div.style.top)||0;
+                let slotIndex=Math.round(newTop/SLOT_H);
+                let newMin=6*60+slotIndex*interval;
+                if(newMin<6*60) newMin=6*60;
+                if(newMin+comp.duracao>20*60+15) newMin=20*60+15-comp.duracao;
+                const snappedTop=((newMin-6*60)/interval)*SLOT_H;
+                div.style.top=snappedTop+'px';
+                const novoH=minParaHora(newMin);
+                if(novoH!==comp.hora_inicio) sendToStreamlit(comp.id+'|'+novoH);
+                e.stopPropagation();
+            }});
+            timeline.appendChild(div);
         }});
-        div.addEventListener('pointerup', (e) => {{
-            if(!isDragging) return;
-            isDragging=false; div.classList.remove('dragging');
-            try{{ div.releasePointerCapture(e.pointerId); }}catch(_ ){{}}
-            if(!moved) {{ sendToStreamlit('DETAIL|'+comp.id); return; }}
-            const newTop=parseInt(div.style.top)||0;
-            let slotIndex=Math.round(newTop/SLOT_H);
-            let newMin=6*60+slotIndex*15;
-            if(newMin<6*60) newMin=6*60;
-            if(newMin+comp.duracao>20*60+15) newMin=20*60+15-comp.duracao;
-            const snappedTop=((newMin-6*60)/15)*SLOT_H;
-            div.style.top=snappedTop+'px';
-            const novoH=minParaHora(newMin);
-            if(novoH!==comp.hora_inicio) sendToStreamlit(comp.id+'|'+novoH);
-            e.stopPropagation();
-        }});
-        timeline.appendChild(div);
+    }}
+
+    // Zoom botoes
+    document.getElementById('btn-zoom-in').onclick = ()=>{{ if(zoomLevel>0){{ zoomLevel--; renderTimeline(); sendToStreamlit('ZOOM|'+zoomLevel); }} }};
+    document.getElementById('btn-zoom-out').onclick = ()=>{{ if(zoomLevel<zoomSteps.length-1){{ zoomLevel++; renderTimeline(); sendToStreamlit('ZOOM|'+zoomLevel); }} }};
+
+    // Pinch to zoom
+    let lastDist=0;
+    timeline.addEventListener('touchstart', (e)=>{{ if(e.touches.length==2){{ lastDist=Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY); }} }}, {{passive:false}});
+    timeline.addEventListener('touchmove', (e)=>{{
+        if(e.touches.length==2){{
+            e.preventDefault();
+            const dist=Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY);
+            if(Math.abs(dist-lastDist)>30){{
+                if(dist>lastDist && zoomLevel>0) zoomLevel--; // abre = mais detalhe
+                else if(dist<lastDist && zoomLevel<zoomSteps.length-1) zoomLevel++;
+                renderTimeline();
+                sendToStreamlit('ZOOM|'+zoomLevel);
+                lastDist=dist;
+            }}
+        }}
+    }}, {{passive:false}});
+
+    // Dias da semana clique
+    document.querySelectorAll('.dia').forEach(el=>{{
+        el.addEventListener('click', ()=>{{ sendToStreamlit('DATE|'+el.dataset.date); }});
     }});
-    document.querySelectorAll('.slot').forEach(slot => {{
-        slot.addEventListener('click', (e) => {{
-            if(e.target.closest('.comp-card')) return;
-            const hora=slot.dataset.hora;
-            sendToStreamlit('NEW|'+hora);
-        }});
-    }});
+
+    renderTimeline();
     </script>
     """
     st.components.v1.html(html_code, height=900, scrolling=True)
+
     st.markdown("""
     <a href="?novo_comp=1" target="_self" style="
         position: fixed; bottom: 30px; right: 22px; width: 64px; height: 64px;
