@@ -30,11 +30,15 @@ st.markdown("""
 <style>
 .stApp { background-color: #121212!important; }
 #MainMenu, footer, header {visibility: hidden; display:none;}
-.block-container {padding-top:10px!important; padding-bottom:150px!important;}
-/* ESCONDE CAMPO DRAG */
-input[aria-label="drag"] { display: none!important; height: 0!important; }
-div[data-testid="stTextInput"] { display: none!important; height: 0!important; margin:0!important; padding:0!important;}
-/* BOTAO PLANEJAR CIANO MEDIO */
+.block-container {padding-top: 0px!important; padding-bottom:150px!important;}
+/* ESCONDE SÓ O CAMPO DRAG - CORRIGIDO */
+input[aria-label="drag"] { display: none!important; }
+div[data-testid="stTextInput"]:has(input[aria-label="drag"]) {
+    display: none!important;
+    height: 0!important;
+    margin: 0!important;
+    padding: 0!important;
+}
 div[data-testid="stButton"] button[kind="primary"] {
     background-color: #00acc1!important;
     border-color: #00acc1!important;
@@ -44,8 +48,7 @@ div[data-testid="stButton"] button[kind="primary"] {
 """, unsafe_allow_html=True)
 
 st.markdown("""
-<h1 style="margin:0; color:white; font-weight:800; font-size:26px;">MyWork</h1>
-<p style="color:#8a8a8a; font-size:13px; margin:0 0 12px 0;">gestão de vendas e agenda</p>
+<h1 style="margin:0; padding-top:4px; color:white; font-weight:800; font-size:26px;">MyWork</h1>
 """, unsafe_allow_html=True)
 
 st.text_input("drag", key="drag_result", label_visibility="collapsed")
@@ -126,6 +129,7 @@ def modal_novo_cliente():
     pagamento = st.selectbox("Forma de Pagamento", ["Dinheiro", "PIX", "Cartão", "Fiado", "Outro"], key="fab_pag")
     obs = st.text_area("Observações", placeholder="Ex: Entregar segunda de manhã...", key="fab_obs")
     st.divider()
+    st.caption("Após salvar, clique no cliente e vá na aba 🛰️ Local para marcar o ponto no mapa")
     c1, c2 = st.columns(2)
     with c1:
         if st.button("💾 Salvar Cliente", type="primary", use_container_width=True):
@@ -274,7 +278,6 @@ elif st.session_state.get('show_novo_comp'):
     if isinstance(data_sel_modal, date): data_sel_modal = data_sel_modal.isoformat()
     modal_novo_compromisso(st.session_state.get('hora_clicada','08:00'), data_sel_modal)
 
-# METAS LOGO ABAIXO DO LOGO - MAIOR - CIANO - ARRASTAVEL
 if st.session_state['pagina'] == 'menu':
     qtd_hoje, venda_hoje = get_visitas_hoje()
     qtd_semana, venda_semana = get_visitas_semana()
@@ -296,15 +299,15 @@ if st.session_state['pagina'] == 'menu':
         <div style="display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;" id="swipe-metas">
             <style>
             #swipe-metas::-webkit-scrollbar{{display:none}}
-         .pg{{min-width:100%; scroll-snap-align:center;}}
-         .box-card{{background:#1e1e1e; border:1px solid #2c2c2c; border-radius:20px; padding:20px; min-height:150px;}}
-         .ttl{{text-align:center; font-weight:800; color:white; font-size:17px; margin-bottom:14px;}}
-         .row{{display:flex; gap:12px;}}
-         .b{{flex:1; background:#2a2a2a; border-radius:14px; padding:16px; border:1px solid #333;}}
-         .lb{{font-size:11px; color:#8a8a8a; font-weight:700; text-transform:uppercase;}}
-         .big{{font-size:24px; color:white; font-weight:900; margin-top:4px;}}
-         .bar{{height:10px; background:#121212; border-radius:99px; margin-top:10px; border:1px solid #333; overflow:hidden;}}
-         .fill{{height:100%; background:#00acc1; border-radius:99px;}}
+        .pg{{min-width:100%; scroll-snap-align:center;}}
+        .box-card{{background:#1e1e1e; border:1px solid #2c2c2c; border-radius:20px; padding:20px; min-height:150px;}}
+        .ttl{{text-align:center; font-weight:800; color:white; font-size:17px; margin-bottom:14px;}}
+        .row{{display:flex; gap:12px;}}
+        .b{{flex:1; background:#2a2a2a; border-radius:14px; padding:16px; border:1px solid #333;}}
+        .lb{{font-size:11px; color:#8a8a8a; font-weight:700; text-transform:uppercase;}}
+        .big{{font-size:24px; color:white; font-weight:900; margin-top:4px;}}
+        .bar{{height:10px; background:#121212; border-radius:99px; margin-top:10px; border:1px solid #333; overflow:hidden;}}
+        .fill{{height:100%; background:#00acc1; border-radius:99px;}}
             </style>
             <div class="pg"><div class="box-card"><div class="ttl">🎯 DIÁRIA</div><div class="row"><div class="b"><div class="lb">visitas</div><div class="big">{qtd_hoje}/{meta_diaria_c}</div><div class="bar"><div class="fill" style="width:{perc_d_c}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_d_c}%</div></div><div class="b"><div class="lb">vendas</div><div class="big">R$ {venda_hoje:.0f}/{meta_diaria_v:.0f}</div><div class="bar"><div class="fill" style="width:{perc_d_v}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_d_v}%</div></div></div></div></div>
             <div class="pg"><div class="box-card"><div class="ttl">📅 SEMANAL</div><div class="row"><div class="b"><div class="lb">visitas</div><div class="big">{qtd_semana}/{meta_semanal_c}</div><div class="bar"><div class="fill" style="width:{perc_s_c}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_s_c}%</div></div><div class="b"><div class="lb">vendas</div><div class="big">R$ {venda_semana:.0f}/{meta_semanal_v:.0f}</div><div class="bar"><div class="fill" style="width:{perc_s_v}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_s_v}%</div></div></div></div></div>
