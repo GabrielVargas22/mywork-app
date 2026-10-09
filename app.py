@@ -12,32 +12,12 @@ init_db()
 init_metas()
 init_agenda()
 st.set_page_config(page_title="MyWork", layout="wide", initial_sidebar_state="collapsed")
-st.markdown("""
-<link rel="manifest" href="app/static/manifest.json">
-<meta name="theme-color" content="#2563eb">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="apple-touch-icon" href="app/static/icon-192.png">
-""", unsafe_allow_html=True)
 
 st.markdown("""
 <style>
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 .block-container {padding-bottom: 120px!important;}
-.metric-big { font-size: 32px; font-weight: 800; line-height: 1; }
-.metric-label { font-size: 11px; font-weight: 700; color: #64748b; letter-spacing: 0.8px; text-transform: uppercase; }
-.metas-swipe {
-  display: flex;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  gap: 12px;
-}
-.metas-swipe::-webkit-scrollbar { display: none; }
-.swipe-page {
-  min-width: 100%;
-  scroll-snap-align: center;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -226,7 +206,7 @@ if 'cliente_id' in st.session_state and st.session_state['cliente_id'] is not No
                     st.success("Visita registrada!"); st.rerun()
         st.stop()
 
-# ===== CARD DE METAS NOVO - COM PLANEJAR EM CIMA E ARRASTE =====
+# ===== CARD DE METAS - 1 QUADRO POR VEZ COM ARRASTE =====
 qtd_hoje, venda_hoje = get_visitas_hoje()
 qtd_semana, venda_semana = get_visitas_semana()
 meta_diaria_c = int(get_config('meta_diaria_clientes'))
@@ -234,56 +214,79 @@ meta_diaria_v = float(get_config('meta_diaria_vendas'))
 meta_semanal_c = meta_diaria_c * 5
 meta_semanal_v = meta_diaria_v * 5
 
+perc_d_c = min(100, int((qtd_hoje/meta_diaria_c*100) if meta_diaria_c>0 else 0))
+perc_d_v = min(100, int((venda_hoje/meta_diaria_v*100) if meta_diaria_v>0 else 0))
+perc_s_c = min(100, int((qtd_semana/meta_semanal_c*100) if meta_semanal_c>0 else 0))
+perc_s_v = min(100, int((venda_semana/meta_semanal_v*100) if meta_semanal_v>0 else 0))
+
 with st.container(border=True):
-    c_tit, c_btn = st.columns([2, 1])
+    c_tit, c_btn = st.columns([3, 1.3])
     with c_tit:
         st.markdown("#### 🎯 Metas")
-        st.caption("👉 Arraste pro lado para ver semanal")
     with c_btn:
         if st.button("🛠️ Planejar", use_container_width=True, type="primary"):
             modal_config_metas()
 
-    st.markdown('<div class="metas-swipe">', unsafe_allow_html=True)
+    html_metas = f"""
+    <div style="display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; gap:0px;" id="swipe-metas">
+        <style>
+        #swipe-metas::-webkit-scrollbar{{display:none}}
+       .pg{{min-width:100%; scroll-snap-align:center; box-sizing:border-box;}}
+       .box-card{{background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:14px;}}
+       .ttl{{text-align:center; font-weight:800; font-size:14px; margin-bottom:10px;}}
+       .row{{display:flex; gap:10px;}}
+       .b{{flex:1; background:white; border-radius:12px; padding:10px; border:1px solid #e2e8f0;}}
+       .lb{{font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;}}
+       .big{{font-size:18px; font-weight:800; line-height:1.2; word-break:break-all;}}
+       .bar{{height:8px; background:#e2e8f0; border-radius:99px; margin-top:6px; overflow:hidden;}}
+       .fill{{height:100%; border-radius:99px;}}
+        </style>
 
-    # Pagina 1 - Diaria
-    st.markdown('<div class="swipe-page">', unsafe_allow_html=True)
-    st.markdown('<p style="text-align:center; font-weight:800; margin:0;">METAS DIÁRIAS</p>', unsafe_allow_html=True)
-    st.divider()
-    col_vis, col_vend = st.columns(2)
-    with col_vis:
-        st.markdown('<div class="metric-label">visitas</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="metric-big">{qtd_hoje}/{meta_diaria_c}</div>', unsafe_allow_html=True)
-        perc = min(100, int((qtd_hoje/meta_diaria_c*100) if meta_diaria_c>0 else 0))
-        st.progress(perc/100)
-        st.caption(f"{perc}%")
-    with col_vend:
-        st.markdown('<div class="metric-label">vendas</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="metric-big">R$ {venda_hoje:.0f}</div>', unsafe_allow_html=True)
-        perc_v = min(100, int((venda_hoje/meta_diaria_v*100) if meta_diaria_v>0 else 0))
-        st.progress(perc_v/100)
-        st.caption(f"{perc_v}% de R$ {meta_diaria_v:.0f}")
-    st.markdown('</div>', unsafe_allow_html=True)
+        <div class="pg">
+            <div class="box-card">
+                <div class="ttl">🎯 DIÁRIA</div>
+                <div class="row">
+                    <div class="b">
+                        <div class="lb">visitas</div>
+                        <div class="big">{qtd_hoje}/{meta_diaria_c}</div>
+                        <div class="bar"><div class="fill" style="width:{perc_d_c}%; background:#2563eb;"></div></div>
+                        <div style="font-size:11px; color:#64748b; margin-top:4px;">{perc_d_c}%</div>
+                    </div>
+                    <div class="b">
+                        <div class="lb">vendas</div>
+                        <div class="big">R$ {venda_hoje:.0f}/{meta_diaria_v:.0f}</div>
+                        <div class="bar"><div class="fill" style="width:{perc_d_v}%; background:#16a34a;"></div></div>
+                        <div style="font-size:11px; color:#64748b; margin-top:4px;">{perc_d_v}%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    # Pagina 2 - Semanal
-    st.markdown('<div class="swipe-page">', unsafe_allow_html=True)
-    st.markdown('<p style="text-align:center; font-weight:800; margin:0;">METAS SEMANAIS</p>', unsafe_allow_html=True)
-    st.divider()
-    col_vis2, col_vend2 = st.columns(2)
-    with col_vis2:
-        st.markdown('<div class="metric-label">visitas</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="metric-big">{qtd_semana}/{meta_semanal_c}</div>', unsafe_allow_html=True)
-        perc = min(100, int((qtd_semana/meta_semanal_c*100) if meta_semanal_c>0 else 0))
-        st.progress(perc/100)
-        st.caption(f"{perc}%")
-    with col_vend2:
-        st.markdown('<div class="metric-label">vendas</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="metric-big">R$ {venda_semana:.0f}</div>', unsafe_allow_html=True)
-        perc_v = min(100, int((venda_semana/meta_semanal_v*100) if meta_semanal_v>0 else 0))
-        st.progress(perc_v/100)
-        st.caption(f"{perc_v}% de R$ {meta_semanal_v:.0f}")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)
+        <div class="pg">
+            <div class="box-card">
+                <div class="box-card" style="border:none; padding:0;">
+                <div class="ttl">📅 SEMANAL</div>
+                <div class="row">
+                    <div class="b">
+                        <div class="lb">visitas</div>
+                        <div class="big">{qtd_semana}/{meta_semanal_c}</div>
+                        <div class="bar"><div class="fill" style="width:{perc_s_c}%; background:#2563eb;"></div></div>
+                        <div style="font-size:11px; color:#64748b; margin-top:4px;">{perc_s_c}%</div>
+                    </div>
+                    <div class="b">
+                        <div class="lb">vendas</div>
+                        <div class="big">R$ {venda_semana:.0f}/{meta_semanal_v:.0f}</div>
+                        <div class="bar"><div class="fill" style="width:{perc_s_v}%; background:#16a34a;"></div></div>
+                        <div style="font-size:11px; color:#64748b; margin-top:4px;">{perc_s_v}%</div>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div style="text-align:center; color:#94a3b8; font-size:11px; margin-top:8px;">👉 arraste para o lado 👉</div>
+    """
+    st.markdown(html_metas, unsafe_allow_html=True)
 
 # DRAG CONTROL DA AGENDA
 if 'last_drag' not in st.session_state: st.session_state['last_drag'] = ""
@@ -365,7 +368,6 @@ with aba_lista:
     """, unsafe_allow_html=True)
 
 with aba_mapa:
-    from datetime import timedelta
     df_all = get_clientes()
     df_loc = df_all.dropna(subset=['lat', 'lng'])
     amanha_str = (date.today() + timedelta(days=1)).isoformat()
