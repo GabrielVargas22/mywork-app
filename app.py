@@ -227,19 +227,22 @@ with st.container(border=True):
         if st.button("🛠️ Planejar", use_container_width=True, type="primary"):
             modal_config_metas()
 
-    html_metas = f"""
-    <div style="display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; gap:0px;" id="swipe-metas">
+    # ===== CORREÇÃO: use f''' e st.components.v1.html =====
+# No card de metas troque para:
+
+    html_metas = f'''
+    <div style="display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;" id="swipe-metas">
         <style>
         #swipe-metas::-webkit-scrollbar{{display:none}}
-       .pg{{min-width:100%; scroll-snap-align:center; box-sizing:border-box;}}
-       .box-card{{background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:14px;}}
-       .ttl{{text-align:center; font-weight:800; font-size:14px; margin-bottom:10px;}}
-       .row{{display:flex; gap:10px;}}
-       .b{{flex:1; background:white; border-radius:12px; padding:10px; border:1px solid #e2e8f0;}}
-       .lb{{font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;}}
-       .big{{font-size:18px; font-weight:800; line-height:1.2; word-break:break-all;}}
-       .bar{{height:8px; background:#e2e8f0; border-radius:99px; margin-top:6px; overflow:hidden;}}
-       .fill{{height:100%; border-radius:99px;}}
+        .pg{{min-width:100%; scroll-snap-align:center; box-sizing:border-box;}}
+        .box-card{{background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:14px;}}
+        .ttl{{text-align:center; font-weight:800; font-size:14px; margin-bottom:10px;}}
+        .row{{display:flex; gap:10px;}}
+        .b{{flex:1; background:white; border-radius:12px; padding:10px; border:1px solid #e2e8f0;}}
+        .lb{{font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;}}
+        .big{{font-size:18px; font-weight:800;}}
+        .bar{{height:8px; background:#e2e8f0; border-radius:99px; margin-top:6px; overflow:hidden;}}
+        .fill{{height:100%; border-radius:99px;}}
         </style>
 
         <div class="pg">
@@ -264,7 +267,6 @@ with st.container(border=True):
 
         <div class="pg">
             <div class="box-card">
-                <div class="box-card" style="border:none; padding:0;">
                 <div class="ttl">📅 SEMANAL</div>
                 <div class="row">
                     <div class="b">
@@ -280,13 +282,12 @@ with st.container(border=True):
                         <div style="font-size:11px; color:#64748b; margin-top:4px;">{perc_s_v}%</div>
                     </div>
                 </div>
-                </div>
             </div>
         </div>
     </div>
     <div style="text-align:center; color:#94a3b8; font-size:11px; margin-top:8px;">👉 arraste para o lado 👉</div>
-    """
-    st.markdown(html_metas, unsafe_allow_html=True)
+    '''
+    st.components.v1.html(html_metas, height=200, scrolling=False)
 
 # DRAG CONTROL DA AGENDA
 if 'last_drag' not in st.session_state: st.session_state['last_drag'] = ""
