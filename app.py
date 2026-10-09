@@ -24,12 +24,23 @@ st.markdown("""
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 .block-container {padding-bottom: 120px!important;}
-.metric-big { font-size: 36px; font-weight: 800; line-height: 1; }
-.metric-label { font-size: 12px; font-weight: 600; color: #64748b; letter-spacing: 0.5px; text-transform: uppercase; }
+.metric-big { font-size: 32px; font-weight: 800; line-height: 1; }
+.metric-label { font-size: 11px; font-weight: 700; color: #64748b; letter-spacing: 0.8px; text-transform: uppercase; }
+.metas-swipe {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  gap: 12px;
+}
+.metas-swipe::-webkit-scrollbar { display: none; }
+.swipe-page {
+  min-width: 100%;
+  scroll-snap-align: center;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# TITULO MyWork
 st.markdown("""
 <h1 style="margin-bottom:0px; padding-bottom:0px; font-weight:800;">MyWork</h1>
 <p style="color:#64748b; font-size:13px; margin-top:2px;">gestão de vendas e agenda</p>
@@ -215,70 +226,66 @@ if 'cliente_id' in st.session_state and st.session_state['cliente_id'] is not No
                     st.success("Visita registrada!"); st.rerun()
         st.stop()
 
-# ===== NOVO CARD DE METAS COM 2 BOTOES =====
-if 'meta_view' not in st.session_state:
-    st.session_state['meta_view'] = 'diaria'
-
+# ===== CARD DE METAS NOVO - COM PLANEJAR EM CIMA E ARRASTE =====
 qtd_hoje, venda_hoje = get_visitas_hoje()
 qtd_semana, venda_semana = get_visitas_semana()
 meta_diaria_c = int(get_config('meta_diaria_clientes'))
 meta_diaria_v = float(get_config('meta_diaria_vendas'))
-# semanal = diaria x 5 dias úteis
 meta_semanal_c = meta_diaria_c * 5
 meta_semanal_v = meta_diaria_v * 5
 
 with st.container(border=True):
-    col_title, col_btn = st.columns([2,1])
-    with col_title:
+    c_tit, c_btn = st.columns([2, 1])
+    with c_tit:
         st.markdown("#### 🎯 Metas")
-    with col_btn:
-        if st.button("⚙️ Configurar", use_container_width=True):
+        st.caption("👉 Arraste pro lado para ver semanal")
+    with c_btn:
+        if st.button("🛠️ Planejar", use_container_width=True, type="primary"):
             modal_config_metas()
 
-    c_diaria, c_semanal = st.columns(2)
-    with c_diaria:
-        tipo_d = "primary" if st.session_state['meta_view']=='diaria' else "secondary"
-        if st.button("diária", key="btn_diaria", type=tipo_d, use_container_width=True):
-            st.session_state['meta_view']='diaria'
-            st.rerun()
-    with c_semanal:
-        tipo_s = "primary" if st.session_state['meta_view']=='semanal' else "secondary"
-        if st.button("semanal", key="btn_semanal", type=tipo_s, use_container_width=True):
-            st.session_state['meta_view']='semanal'
-            st.rerun()
+    st.markdown('<div class="metas-swipe">', unsafe_allow_html=True)
 
+    # Pagina 1 - Diaria
+    st.markdown('<div class="swipe-page">', unsafe_allow_html=True)
+    st.markdown('<p style="text-align:center; font-weight:800; margin:0;">METAS DIÁRIAS</p>', unsafe_allow_html=True)
     st.divider()
+    col_vis, col_vend = st.columns(2)
+    with col_vis:
+        st.markdown('<div class="metric-label">visitas</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-big">{qtd_hoje}/{meta_diaria_c}</div>', unsafe_allow_html=True)
+        perc = min(100, int((qtd_hoje/meta_diaria_c*100) if meta_diaria_c>0 else 0))
+        st.progress(perc/100)
+        st.caption(f"{perc}%")
+    with col_vend:
+        st.markdown('<div class="metric-label">vendas</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-big">R$ {venda_hoje:.0f}</div>', unsafe_allow_html=True)
+        perc_v = min(100, int((venda_hoje/meta_diaria_v*100) if meta_diaria_v>0 else 0))
+        st.progress(perc_v/100)
+        st.caption(f"{perc_v}% de R$ {meta_diaria_v:.0f}")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    if st.session_state['meta_view']=='diaria':
-        col_vis, col_vend = st.columns(2)
-        with col_vis:
-            st.markdown('<div class="metric-label">visitas</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-big">{qtd_hoje}/{meta_diaria_c}</div>', unsafe_allow_html=True)
-            perc = min(100, int((qtd_hoje/meta_diaria_c*100) if meta_diaria_c>0 else 0))
-            st.progress(perc/100)
-            st.caption(f"{perc}%")
-        with col_vend:
-            st.markdown('<div class="metric-label">vendas</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-big">R$ {venda_hoje:.0f}/{meta_diaria_v:.0f}</div>', unsafe_allow_html=True)
-            perc_v = min(100, int((venda_hoje/meta_diaria_v*100) if meta_diaria_v>0 else 0))
-            st.progress(perc_v/100)
-            st.caption(f"{perc_v}% - meta R$ {meta_diaria_v:.0f}")
-    else:
-        col_vis, col_vend = st.columns(2)
-        with col_vis:
-            st.markdown('<div class="metric-label">visitas</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-big">{qtd_semana}/{meta_semanal_c}</div>', unsafe_allow_html=True)
-            perc = min(100, int((qtd_semana/meta_semanal_c*100) if meta_semanal_c>0 else 0))
-            st.progress(perc/100)
-            st.caption(f"{perc}% - {meta_semanal_c} = {meta_diaria_c} x 5 dias")
-        with col_vend:
-            st.markdown('<div class="metric-label">vendas</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-big">R$ {venda_semana:.0f}/{meta_semanal_v:.0f}</div>', unsafe_allow_html=True)
-            perc_v = min(100, int((venda_semana/meta_semanal_v*100) if meta_semanal_v>0 else 0))
-            st.progress(perc_v/100)
-            st.caption(f"{perc_v}%")
+    # Pagina 2 - Semanal
+    st.markdown('<div class="swipe-page">', unsafe_allow_html=True)
+    st.markdown('<p style="text-align:center; font-weight:800; margin:0;">METAS SEMANAIS</p>', unsafe_allow_html=True)
+    st.divider()
+    col_vis2, col_vend2 = st.columns(2)
+    with col_vis2:
+        st.markdown('<div class="metric-label">visitas</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-big">{qtd_semana}/{meta_semanal_c}</div>', unsafe_allow_html=True)
+        perc = min(100, int((qtd_semana/meta_semanal_c*100) if meta_semanal_c>0 else 0))
+        st.progress(perc/100)
+        st.caption(f"{perc}%")
+    with col_vend2:
+        st.markdown('<div class="metric-label">vendas</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-big">R$ {venda_semana:.0f}</div>', unsafe_allow_html=True)
+        perc_v = min(100, int((venda_semana/meta_semanal_v*100) if meta_semanal_v>0 else 0))
+        st.progress(perc_v/100)
+        st.caption(f"{perc_v}% de R$ {meta_semanal_v:.0f}")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# DRAG CONTROL
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# DRAG CONTROL DA AGENDA
 if 'last_drag' not in st.session_state: st.session_state['last_drag'] = ""
 drag_valor_atual = st.session_state.get('drag_result', '')
 if drag_valor_atual and drag_valor_atual!= st.session_state['last_drag']:
@@ -350,23 +357,10 @@ with aba_lista:
                 with c2: st.write("✅ Visitado" if visitado else "⬜ Pendente")
     st.markdown("""
     <a href="?novo_cliente=1" target="_self" style="
-        position: fixed;
-        bottom: 30px;
-        right: 22px;
-        width: 64px;
-        height: 64px;
-        border-radius: 50%;
-        background: #2563eb;
-        color: white;
-        font-size: 36px;
-        font-weight: 300;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-decoration: none;
-        z-index: 9999999;
-        box-shadow: 0 6px 20px rgba(37,99,235,0.5);
-        line-height: 1;
+        position: fixed; bottom: 30px; right: 22px; width: 64px; height: 64px;
+        border-radius: 50%; background: #2563eb; color: white; font-size: 36px;
+        font-weight: 300; display: flex; align-items: center; justify-content: center;
+        text-decoration: none; z-index: 9999999; box-shadow: 0 6px 20px rgba(37,99,235,0.5); line-height: 1;
     ">+</a>
     """, unsafe_allow_html=True)
 
@@ -374,12 +368,9 @@ with aba_mapa:
     from datetime import timedelta
     df_all = get_clientes()
     df_loc = df_all.dropna(subset=['lat', 'lng'])
-    
-    # verifica quem tem compromisso amanhã
     amanha_str = (date.today() + timedelta(days=1)).isoformat()
     comps_amanha = get_compromissos(amanha_str)
     ids_amanha = set([c['cliente_id'] for c in comps_amanha if c['cliente_id']])
-    
     if df_loc.empty:
         m_geral = mapa_hibrido([-29.942, -50.99], 14)
         st_folium(m_geral, height=500, use_container_width=True, key="geral_vazio")
@@ -391,16 +382,13 @@ with aba_mapa:
             tem_amanha = int(r['id']) in ids_amanha
             adicionar_pino(m_geral, r['lat'], r['lng'], int(r['id']), r['nome'], cor, tem_amanha)
         st_folium(m_geral, height=500, use_container_width=True, key="geral")
-
-    # pega clique via query param ?cliente_id=xx
     if st.query_params.get("cliente_id"):
         try:
             cid = int(st.query_params.get("cliente_id"))
             st.session_state['cliente_id'] = cid
             st.query_params.clear()
             st.rerun()
-        except:
-            pass
+        except: pass
 
 with aba_agenda:
     if 'data_agenda_sel' not in st.session_state:
@@ -524,22 +512,9 @@ with aba_agenda:
     st.components.v1.html(html_code, height=900, scrolling=True)
     st.markdown("""
     <a href="?novo_comp=1" target="_self" style="
-        position: fixed;
-        bottom: 30px;
-        right: 22px;
-        width: 64px;
-        height: 64px;
-        border-radius: 50%;
-        background: #ea580c;
-        color: white;
-        font-size: 32px;
-        font-weight: 300;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-decoration: none;
-        z-index: 9999999;
-        box-shadow: 0 6px 20px rgba(234,88,12,0.5);
-        line-height: 1;
+        position: fixed; bottom: 30px; right: 22px; width: 64px; height: 64px;
+        border-radius: 50%; background: #ea580c; color: white; font-size: 32px;
+        font-weight: 300; display: flex; align-items: center; justify-content: center;
+        text-decoration: none; z-index: 9999999; box-shadow: 0 6px 20px rgba(234,88,12,0.5); line-height: 1;
     ">+</a>
     """, unsafe_allow_html=True)
