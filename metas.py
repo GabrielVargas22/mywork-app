@@ -1,89 +1,78 @@
-import sqlite3
-from datetime import date, timedelta
+import streamlit as st
 
-DB = 'banco.db'
+def tela_metas():
+    # CSS pro efeito de arrastar pro lado
+    st.markdown("""
+    <style>
+    .metas-wrapper {
+        overflow-x: auto;
+        display: flex;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        gap: 16px;
+        padding-bottom: 10px;
+    }
+    .metas-wrapper::-webkit-scrollbar { display: none; }
+    .meta-page {
+        min-width: 100%;
+        scroll-snap-align: start;
+        background: white;
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    .titulo-meta {
+        text-align: center;
+        font-weight: 700;
+        font-size: 18px;
+        margin-bottom: 12px;
+    }
+    .dica-arraste {
+        text-align: center;
+        font-size: 12px;
+        color: #888;
+        margin-bottom: 8px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-def init_metas():
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS visitas
-                 (id INTEGER PRIMARY KEY, cliente_id INTEGER, data TEXT, valor REAL)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS config
-                 (chave TEXT PRIMARY KEY, valor TEXT)''')
-    c.execute("INSERT OR IGNORE INTO config (chave, valor) VALUES ('meta_diaria_clientes', '15')")
-    c.execute("INSERT OR IGNORE INTO config (chave, valor) VALUES ('meta_diaria_vendas', '500')")
-    c.execute("INSERT OR IGNORE INTO config (chave, valor) VALUES ('meta_semanal_clientes', '80')")
-    c.execute("INSERT OR IGNORE INTO config (chave, valor) VALUES ('meta_semanal_vendas', '2500')")
-    conn.commit()
-    conn.close()
+    # BOTÃO PLANEJAR EM CIMA
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        if st.button("📋 Planejar", use_container_width=True, type="primary"):
+            st.session_state['mostrar_config_metas'] = True
 
-def get_config(chave):
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-    c.execute("SELECT valor FROM config WHERE chave=?", (chave,))
-    r = c.fetchone()
-    conn.close()
-    return r[0] if r else "0"
+    if st.session_state.get('mostrar_config_metas'):
+        st.info("Aqui vai sua tela de configuração de metas")
+        if st.button("Fechar"):
+            st.session_state['mostrar_config_metas'] = False
+            st.rerun()
 
-def set_config(chave, valor):
-    conn = sqlite3.connect(DB)
-    conn.execute("INSERT OR REPLACE INTO config (chave, valor) VALUES (?,?)", (chave, str(valor)))
-    conn.commit()
-    conn.close()
+    st.markdown('<div class="dica-arraste">👉 Arraste para o lado para trocar</div>', unsafe_allow_html=True)
 
-def registrar_visita(cliente_id, valor=0):
-    hoje = date.today().isoformat()
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-    c.execute("SELECT id FROM visitas WHERE cliente_id=? AND data=?", (cliente_id, hoje))
-    existe = c.fetchone()
-    if existe:
-        conn.execute("UPDATE visitas SET valor=? WHERE cliente_id=? AND data=?", (valor, cliente_id, hoje))
-    else:
-        conn.execute("INSERT INTO visitas (cliente_id, data, valor) VALUES (?,?,?)", (cliente_id, hoje, valor))
-    conn.commit()
-    conn.close()
+    # CONTAINER DESLIZÁVEL
+    st.markdown("""
+    <div class="metas-wrapper" id="metasWrapper">
+        <div class="meta-page">
+            <div class="titulo-meta">🎯 Metas Diárias</div>
+    """, unsafe_allow_html=True)
 
-def deletar_visita_hoje(cliente_id):
-    hoje = date.today().isoformat()
-    conn = sqlite3.connect(DB)
-    conn.execute("DELETE FROM visitas WHERE cliente_id=? AND data=?", (cliente_id, hoje))
-    conn.commit()
-    conn.close()
+    # --- CONTEÚDO DIÁRIA (seu código antigo de diária entra aqui) ---
+    # Exemplo:
+    st.metric("Vendas Hoje", f"R$ {st.session_state.get('venda_hoje', 0)}")
+    st.progress(50)
+    
+    st.markdown("</div><div class='meta-page'><div class='titulo-meta'>📅 Metas Semanais</div>", unsafe_allow_html=True)
+    
+    # --- CONTEÚDO SEMANAL (seu código antigo de semanal entra aqui) ---
+    st.metric("Vendas Semana", f"R$ {st.session_state.get('venda_semana', 0)}")
+    st.progress(70)
 
-def get_visitas_hoje():
-    hoje = date.today().isoformat()
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-    c.execute("SELECT COUNT(*), COALESCE(SUM(valor),0) FROM visitas WHERE data=?", (hoje,))
-    qtd, total = c.fetchone()
-    conn.close()
-    return qtd or 0, total or 0
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
-def get_visitas_semana():
-    hoje = date.today()
-    inicio = (hoje - timedelta(days=hoje.weekday())).isoformat()
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-    c.execute("SELECT COUNT(*), COALESCE(SUM(valor),0) FROM visitas WHERE data>=?", (inicio,))
-    qtd, total = c.fetchone()
-    conn.close()
-    return qtd or 0, total or 0
-
-def ja_visitou_hoje(cliente_id):
-    hoje = date.today().isoformat()
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM visitas WHERE cliente_id=? AND data=?", (cliente_id, hoje))
-    r = c.fetchone()[0]
-    conn.close()
-    return r > 0
-
-def get_valor_visita_hoje(cliente_id):
-    hoje = date.today().isoformat()
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-    c.execute("SELECT valor FROM visitas WHERE cliente_id=? AND data=?", (cliente_id, hoje))
-    r = c.fetchone()
-    conn.close()
-    return r[0] if r else 0.0
+    # JS pra mudar o título quando arrasta (opcional)
+    st.markdown("""
+    <script>
+    const wrapper = document.getElementById('metasWrapper');
+    </script>
+    """, unsafe_allow_html=True)
