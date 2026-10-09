@@ -219,17 +219,31 @@ if 'cliente_id' in st.session_state and st.session_state['cliente_id'] is not No
         st.stop()
 
 # CONTROLE DA BARRA INFERIOR
+# CONTROLE DA BARRA INFERIOR - FIX
+if 'pagina' not in st.session_state:
+    st.session_state['pagina'] = 'menu'
+if 'last_drag' not in st.session_state:
+    st.session_state['last_drag'] = ""
+
 st.text_input("drag", key="drag_result", label_visibility="collapsed")
 drag_val = st.session_state.get('drag_result','')
-if drag_val.startswith("NAV|"):
-    st.session_state['pagina'] = drag_val.split("|")[1]
-    st.session_state['drag_result'] = ""
-    st.rerun()
-if drag_val.startswith("DATE|"):
-    try:
-        st.session_state['data_agenda_sel'] = date.fromisoformat(drag_val.split("|")[1])
-        st.session_state['drag_result'] = ""
+
+if drag_val and drag_val!= st.session_state['last_drag']:
+    if drag_val.startswith("NAV|"):
+        st.session_state['pagina'] = drag_val.split("|")[1]
+        st.session_state['last_drag'] = drag_val
         st.rerun()
+    if drag_val.startswith("DATE|"):
+        try:
+            st.session_state['data_agenda_sel'] = date.fromisoformat(drag_val.split("|")[1])
+            st.session_state['last_drag'] = drag_val
+            st.rerun()
+        except: pass
+    if drag_val.startswith("ZOOM|"):
+        try:
+            st.session_state['zoom_agenda'] = int(drag_val.split("|")[1])
+            st.session_state['last_drag'] = drag_val
+        except: pass
     except: pass
 if drag_val.startswith("ZOOM|"):
     try: st.session_state['zoom_agenda'] = int(drag_val.split("|")[1])
