@@ -4,7 +4,6 @@ from folium.plugins import LocateControl
 def mapa_hibrido(center, zoom=14):
     m = folium.Map(location=center, zoom_start=zoom, tiles=None, zoom_control=True)
 
-    # 1. Só ruas - Google limpo (igual Waze)
     ruas = folium.TileLayer(
         tiles='https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
         attr='Google',
@@ -14,7 +13,6 @@ def mapa_hibrido(center, zoom=14):
     )
     ruas.add_to(m)
 
-    # 2. Híbrido - Satélite + ruas por cima
     hibrido = folium.TileLayer(
         tiles='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
         attr='Google',
@@ -24,10 +22,8 @@ def mapa_hibrido(center, zoom=14):
     )
     hibrido.add_to(m)
 
-    # Botão de trocar Ruas / Híbrido no canto superior direito
     folium.LayerControl(position='topright', collapsed=False).add_to(m)
 
-    # Botão de localização no canto inferior direito
     LocateControl(
         position='bottomright',
         strings={'title': 'Ir para minha localização'},
@@ -40,7 +36,6 @@ def mapa_hibrido(center, zoom=14):
     return m
 
 def mapa_satelite(center, zoom=16):
-    # Usado na criação do cliente
     m = folium.Map(location=center, zoom_start=zoom, tiles=None, zoom_control=True)
 
     folium.TileLayer(
@@ -76,7 +71,6 @@ def adicionar_pino(m, lat, lng, cliente_id, nome, cor="blue", tem_amanha=False):
     else:
         html = f"""<div style="width:24px; height:24px; background:{cor_base}; border:3px solid white; border-radius:50%; box-shadow:0 2px 8px rgba(0,0,0,0.5);"></div>"""
 
-    # Popup com seu botão + ID escondido para o Streamlit capturar
     popup_html = f"""
     <div style="min-width:160px; font-family:sans-serif;">
         <b style="font-size:13px;">{nome}</b><br>
@@ -86,7 +80,7 @@ def adicionar_pino(m, lat, lng, cliente_id, nome, cor="blue", tem_amanha=False):
     """
     folium.Marker(
         location=[lat, lng],
-        tooltip=str(cliente_id),  # ID no tooltip pra detectar clique
+        tooltip=str(cliente_id),
         icon=folium.DivIcon(html=html, icon_size=(28,28), icon_anchor=(14,14)),
         popup=folium.Popup(popup_html, max_width=200)
     ).add_to(m)
