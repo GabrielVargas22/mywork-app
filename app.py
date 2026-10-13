@@ -1,134 +1,105 @@
 import streamlit as st
-import folium
 from streamlit_folium import st_folium
 from datetime import date, datetime, timedelta
-from database import init_db, get_clientes, get_cliente_dict, salvar_cliente, atualizar_cliente, atualizar_local, deletar_cliente
-from mapas import mapa_hibrido, adicionar_pino
-from metas import init_metas, get_config, set_config, registrar_visita, deletar_visita_hoje, get_visitas_hoje, get_visitas_semana, ja_visitou_hoje, get_valor_visita_hoje
-from agenda import init_agenda, add_compromisso, get_compromissos, deletar_compromisso, hora_para_minutos, update_horario
-import json
+import folium
+
+from database import init_db, get_clientes, get_cliente_dict, salvar_cliente
+from agenda import init_agenda, get_compromissos, add_compromisso, deletar_compromisso, update_horario, hora_para_minutos, CORES
+from metas import init_metas, tela_metas_completa, registrar_visita, ja_visitou_hoje
+from mapas import mapa_hibrido, mapa_satelite, adicionar_pino
+
+st.set_page_config(page_title="MyWork", layout="wide", page_icon="💼")
 
 init_db()
-init_metas()
 init_agenda()
-st.set_page_config(page_title="MyWork", layout="wide", initial_sidebar_state="collapsed")
+init_metas()
 
-if 'pagina' not in st.session_state:
-    st.session_state['pagina'] = 'menu'
-if 'last_drag' not in st.session_state:
-    st.session_state['last_drag'] = ""
-if 'data_agenda_sel' not in st.session_state:
-    st.session_state['data_agenda_sel'] = date.today()
-if 'zoom_agenda' not in st.session_state:
-    st.session_state['zoom_agenda'] = 0
-
-if st.query_params.get("pagina") in ["menu","clientes","agenda","mapa"]:
-    st.session_state['pagina'] = st.query_params.get("pagina")
-    st.query_params.clear()
-
+# --- ESTILO GLOBAL ---
 st.markdown("""
 <style>
-.stApp { background-color: #121212!important; }
-#MainMenu, footer, header {visibility: hidden; display:none;}
-.block-container {padding-top: 0px!important; padding-bottom:150px!important;}
-/* ESCONDE SÓ O CAMPO DRAG - CORRIGIDO */
-input[aria-label="drag"] { display: none!important; }
-div[data-testid="stTextInput"]:has(input[aria-label="drag"]) {
-    display: none!important;
-    height: 0!important;
-    margin: 0!important;
-    padding: 0!important;
-}
-div[data-testid="stButton"] button[kind="primary"] {
-    background-color: #00acc1!important;
-    border-color: #00acc1!important;
-    color: white!important;
+#MainMenu, header, footer {visibility:hidden;}
+.block-container { padding-top: 10px; padding-bottom: 90px; }
+.bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; height: 70px;
+    background: white; border-top: 1px solid #e5e7eb;
+    display: flex; justify-content: space-around; align-items: center;
+    z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-<h1 style="margin:0; padding-top:4px; color:white; font-weight:800; font-size:26px;">MyWork</h1>
-""", unsafe_allow_html=True)
+# --- NAVEGAÇÃO ---
+if 'pagina' not in st.session_state:
+    st.session_state['pagina'] = 'menu'
+if 'data_agenda' not in st.session_state:
+    st.session_state['data_agenda'] = date.today().isoformat()
+if 'novo_cli_lat' not in st.session_state:
+    st.session_state['novo_cli_lat'] = None
+    st.session_state['novo_cli_lng'] = None
 
-st.text_input("drag", key="drag_result", label_visibility="collapsed")
-drag_valor_atual = st.session_state.get('drag_result', '')
-if drag_valor_atual and drag_valor_atual!= st.session_state.get('last_drag',''):
-    st.session_state['last_drag'] = drag_valor_atual
-    if drag_valor_atual.startswith("NAV|"):
-        st.session_state['pagina'] = drag_valor_atual.split("|")[1]
-        st.rerun()
-    elif drag_valor_atual.startswith("DATE|"):
-        try:
-            st.session_state['data_agenda_sel'] = date.fromisoformat(drag_valor_atual.split("|")[1])
-            st.rerun()
-        except: pass
-    elif drag_valor_atual.startswith("ZOOM|"):
-        try: st.session_state['zoom_agenda'] = int(drag_valor_atual.split("|")[1])
-        except: pass
-    elif drag_valor_atual.startswith("NEW|"):
-        _, hora_nova = drag_valor_atual.split("|")
-        st.session_state['hora_clicada'] = hora_nova
-        st.session_state['show_novo_comp'] = True
-        st.rerun()
-    elif drag_valor_atual.startswith("DETAIL|"):
-        _, id_str = drag_valor_atual.split("|")
-        st.session_state['comp_detalhe_id'] = int(id_str)
-        st.session_state['show_detalhe_comp'] = True
-        st.rerun()
-    elif "|" in drag_valor_atual:
-        try:
-            id_mover, novo_h = drag_valor_atual.split("|")
-            if id_mover.isdigit():
-                update_horario(int(id_mover), novo_h)
-                st.toast(f"Movido para {novo_h}!")
-        except: pass
+query_params = st.query_params
+if 'cliente_id' in query_params:
+    st.session_state['cliente_detalhe'] = int(query_params['cliente_id'])
 
-@st.dialog("Novo Compromisso", width="large")
-def modal_novo_compromisso(hora_pre, data_str):
-    st.markdown(f"**📅 {data_str} | ⏰ {hora_pre}**")
-    tipo = st.selectbox("Tipo", ["visita", "viagem", "evento", "outros", "almoco"], format_func=lambda x: {"visita":"👤 Visita Cliente","viagem":"🚗 Viagem","evento":"🎉 Evento","outros":"📝 Outros","almoco":"🍽️ Almoço"}[x], key="tipo_modal_dialog")
-    col_h1, col_h2 = st.columns(2)
-    with col_h1: hora_ini = st.time_input("Horário início", value=datetime.strptime(hora_pre, "%H:%M").time(), key="hora_ini_dialog")
-    with col_h2: duracao = st.selectbox("Duração", [15,30,45,60,90,120,180], format_func=lambda x: f"{x} min" if x<60 else f"{x//60}h" if x%60==0 else f"{x//60}h {x%60}min", key="dur_dialog")
-    cliente_id_sel = None
-    titulo_final = ""
-    if tipo == "visita":
-        todos_cli = get_clientes()
-        busca_cli = st.text_input("🔍 Buscar cliente", key="busca_dialog")
-        if busca_cli and not todos_cli.empty: todos_cli = todos_cli[todos_cli['nome'].str.contains(busca_cli, case=False, na=False)]
-        if not todos_cli.empty:
-            opcoes = {f"{row['nome']} - {row['endereco'] or ''}": int(row['id']) for _, row in todos_cli.iterrows()}
-            sel = st.selectbox("Selecione o cliente", list(opcoes.keys()), key="sel_cli_dialog")
-            cliente_id_sel = opcoes[sel]
-            titulo_final = sel.split(" - ")[0]
-    elif tipo == "viagem": titulo_final = "Viagem"
-    elif tipo == "almoco": titulo_final = "Almoço"
-    else: titulo_final = st.text_input("Título", key="tit_dialog")
+def pagina_menu():
+    st.markdown("## 💼 MyWork")
+    tela_metas_completa()
     st.divider()
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("💾 Salvar", type="primary", use_container_width=True):
-            if tipo == "visita" and not cliente_id_sel: st.error("Selecione um cliente")
-            elif not titulo_final: st.error("Digite um título")
-            else:
-                add_compromisso(data_str, hora_ini.strftime("%H:%M"), duracao, tipo, cliente_id_sel, titulo_final)
-                st.session_state['show_novo_comp'] = False
+    st.markdown("### 📋 Visitas de hoje")
+    clientes = get_clientes()
+    for cli in clientes:
+        if ja_visitou_hoje(cli[0]):
+            st.success(f"✅ {cli[1]} - visitado")
+
+def pagina_clientes():
+    st.markdown("## 👥 Clientes")
+
+    busca = st.text_input("🔍 Buscar cliente", placeholder="Digite nome...")
+    clientes = get_clientes()
+    if busca:
+        clientes = [c for c in clientes if busca.lower() in c[1].lower()]
+
+    for cli in clientes:
+        cid, nome, endereco, whats, pag, obs, lat, lng = cli
+        visitado = ja_visitou_hoje(cid)
+        cor_card = "#dcfce7" if visitado else "#ffffff"
+        st.markdown(f"""
+        <div style="background:{cor_card}; border:1px solid #e5e7eb; border-radius:14px; padding:12px; margin-bottom:10px;">
+            <b>{nome}</b> {'✅' if visitado else ''}<br>
+            <small style="color:#666;">{endereco or 'Sem endereço'} • {whats or ''}</small>
+        </div>
+        """, unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("👁️ Ver", key=f"ver_{cid}", use_container_width=True):
+                st.session_state['cliente_detalhe'] = cid
+                st.session_state['pagina'] = 'menu'
                 st.rerun()
-    with c2:
-        if st.button("Cancelar", use_container_width=True):
-            st.session_state['show_novo_comp'] = False
-            st.rerun()
+        with c2:
+            if not visitado:
+                if st.button("✔️ Visitei", key=f"vis_{cid}", use_container_width=True):
+                    registrar_visita(cid, 0)
+                    st.rerun()
+            else:
+                st.button("Visitado", key=f"vis2_{cid}", disabled=True, use_container_width=True)
+
+    if 'cliente_detalhe' in st.session_state:
+        cli = get_cliente_dict(st.session_state['cliente_detalhe'])
+        if cli:
+            @st.dialog(f"{cli['nome']}", width="large")
+            def detalhe():
+                st.write(f"📍 {cli['endereco']}")
+                st.write(f"📱 {cli['whatsapp']}")
+                st.write(f"💳 {cli['pagamento']}")
+                st.write(f"📝 {cli['obs']}")
+                if st.button("Fechar"):
+                    del st.session_state['cliente_detalhe']
+                    st.rerun()
+            detalhe()
 
 @st.dialog("Novo Cliente", width="large")
 def modal_novo_cliente():
     st.markdown("### ➕ Novo Cliente")
-    
-    # Inicializa localização temporária
-    if 'novo_cli_lat' not in st.session_state:
-        st.session_state['novo_cli_lat'] = None
-        st.session_state['novo_cli_lng'] = None
-
     nome = st.text_input("Nome *", placeholder="Ex: Mercado do João", key="fab_nome")
     endereco = st.text_input("Endereço", placeholder="Rua, número, bairro", key="fab_end")
     whatsapp = st.text_input("WhatsApp", placeholder="(51) 99999-9999", key="fab_whats")
@@ -137,26 +108,21 @@ def modal_novo_cliente():
 
     st.divider()
     st.markdown("#### 📍 Localização no mapa")
-    st.caption("Clique no mapa para marcar ou use o botão 🎯 no mapa para ir até você e marcar sua localização atual.")
+    st.caption("Clique no mapa para marcar ou use o botão 🎯 (canto inferior direito) para ir até você.")
 
-    # Mapa para escolher local
-    from mapas import mapa_satelite
-    m_novo = mapa_satelite([-29.942, -50.99], 16)
-    
-    # Se já clicou antes, mostra pino
+    m_novo = mapa_satelite([-29.942, -50.99], 15)
     if st.session_state['novo_cli_lat'] and st.session_state['novo_cli_lng']:
         adicionar_pino(m_novo, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'], 0, "Novo cliente", "green")
-        st.success(f"📍 Local marcado: {st.session_state['novo_cli_lat']:.6f}, {st.session_state['novo_cli_lng']:.6f}")
+        st.success(f"📍 Marcado: {st.session_state['novo_cli_lat']:.5f}, {st.session_state['novo_cli_lng']:.5f}")
 
     map_data = st_folium(m_novo, height=350, use_container_width=True, key="mapa_novo_cli")
-
     if map_data and map_data['last_clicked']:
         st.session_state['novo_cli_lat'] = map_data['last_clicked']['lat']
         st.session_state['novo_cli_lng'] = map_data['last_clicked']['lng']
         st.rerun()
 
     if st.session_state['novo_cli_lat']:
-        if st.button("❌ Remover localização", use_container_width=True):
+        if st.button("❌ Remover localização"):
             st.session_state['novo_cli_lat'] = None
             st.session_state['novo_cli_lng'] = None
             st.rerun()
@@ -171,278 +137,215 @@ def modal_novo_cliente():
                 salvar_cliente(nome, endereco, whatsapp, pagamento, obs, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'])
                 st.session_state['novo_cli_lat'] = None
                 st.session_state['novo_cli_lng'] = None
-                st.session_state['show_novo_cliente'] = False
-                st.toast("Cliente salvo com localização!" if st.session_state.get('novo_cli_lat') else "Cliente salvo!", icon="✅")
+                st.toast("Cliente salvo!", icon="✅")
                 st.rerun()
     with c2:
         if st.button("Cancelar", use_container_width=True):
             st.session_state['novo_cli_lat'] = None
             st.session_state['novo_cli_lng'] = None
-            st.session_state['show_novo_cliente'] = False
             st.rerun()
 
-@st.dialog("Detalhe do Compromisso", width="large")
-def modal_detalhe_compromisso(comp_id):
-    data_sel_base = st.session_state.get('data_agenda_sel', date.today())
-    if isinstance(data_sel_base, str):
-        try: data_sel_base = date.fromisoformat(data_sel_base)
-        except: data_sel_base = date.today()
-    comp_encontrado = None
-    for offset in range(-3, 4):
-        d = (data_sel_base + timedelta(days=offset)).isoformat()
-        for c in get_compromissos(d):
-            if c['id'] == comp_id:
-                comp_encontrado = c
-                comp_encontrado['data'] = d
-                break
-        if comp_encontrado: break
-    if not comp_encontrado:
-        st.error("Compromisso não encontrado")
-        if st.button("Fechar"):
-            st.session_state['show_detalhe_comp'] = False
-            st.rerun()
-        return
-    tipo_label = {"visita":"👤 Visita","viagem":"🚗 Viagem","evento":"🎉 Evento","outros":"📝 Outros","almoco":"🍽️ Almoço"}.get(comp_encontrado['tipo'], comp_encontrado['tipo'])
-    fim_min = hora_para_minutos(comp_encontrado['hora_inicio']) + comp_encontrado['duracao']
-    fim_hora = f"{fim_min//60:02d}:{fim_min%60:02d}"
-    st.markdown(f"### {tipo_label} - {comp_encontrado['titulo']}")
-    st.markdown(f"**📅 {comp_encontrado['data']} | ⏰ {comp_encontrado['hora_inicio']} - {fim_hora} ({comp_encontrado['duracao']} min)**")
-    if comp_encontrado['tipo'] == 'visita' and comp_encontrado['cliente_id']:
-        cli = get_cliente_dict(comp_encontrado['cliente_id'])
-        if cli:
-            st.divider()
-            st.markdown(f"**👤 Cliente:** {cli['nome']}")
-            st.caption(f"📍 {cli['endereco'] or 'Sem endereço'}")
-            if cli['whatsapp']: st.caption(f"📱 {cli['whatsapp']}")
-            obs_val = cli.get('observacoes') or cli.get('obs') or ""
-            if obs_val: st.info(f"📝 {obs_val}")
-            if st.button("👁️ Ver dados completos do cliente", type="primary", use_container_width=True):
-                st.session_state['cliente_id'] = cli['id']
-                st.session_state['show_detalhe_comp'] = False
+def pagina_agenda():
+    from datetime import date, timedelta, datetime
+    import streamlit.components.v1 as components
+
+    st.markdown("""
+    <style>
+   .dias-wrapper {
+        position: sticky; top: 0; z-index: 20; background: white;
+        padding: 8px 0 12px 0; margin: -10px -16px 10px -16px;
+        padding-left: 16px; padding-right: 16px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+   .agenda-container { touch-action: pan-y pinch-zoom; transform-origin: top left; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("## 📅 Agenda")
+
+    # DIAS SEM SETAS - ARRASTÁVEL
+    dias = []
+    for i in range(-3, 8):
+        d = date.today() + timedelta(days=i)
+        dias.append(d)
+
+    cols = st.columns(11)
+    for idx, d in enumerate(dias):
+        label = f"{['S','T','Q','Q','S','S','D'][d.weekday()]}\n{d.day}"
+        is_active = d.isoformat() == st.session_state['data_agenda']
+        with cols[idx]:
+            if st.button(label, key=f"dia_{d.isoformat()}", type="primary" if is_active else "secondary", use_container_width=True):
+                st.session_state['data_agenda'] = d.isoformat()
                 st.rerun()
-    st.divider()
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("🗑️ Excluir compromisso", use_container_width=True):
-            deletar_compromisso(comp_id)
-            st.session_state['show_detalhe_comp'] = False
-            st.toast("Compromisso excluído")
-            st.rerun()
-    with c2:
-        if st.button("Fechar", use_container_width=True):
-            st.session_state['show_detalhe_comp'] = False
-            st.rerun()
 
-@st.dialog("Configurar Metas", width="large")
-def modal_config_metas():
-    st.markdown("### ⚙️ Configurar Metas")
-    meta_diaria_c = int(get_config('meta_diaria_clientes'))
-    meta_diaria_v = float(get_config('meta_diaria_vendas'))
-    nd_c = st.number_input("Meta diária - visitas", value=meta_diaria_c, min_value=1, step=1)
-    nd_v = st.number_input("Meta diária - vendas R$", value=meta_diaria_v, min_value=0.0, step=50.0)
-    st.divider()
-    st.info(f"Semanal será: **{nd_c*5} visitas** e **R$ {nd_v*5:.2f}**")
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("💾 Salvar", type="primary", use_container_width=True):
-            set_config('meta_diaria_clientes', nd_c)
-            set_config('meta_diaria_vendas', nd_v)
-            set_config('meta_semanal_clientes', nd_c*5)
-            set_config('meta_semanal_vendas', nd_v*5)
-            st.toast("Metas salvas!")
-            st.rerun()
-    with c2:
-        if st.button("Cancelar", use_container_width=True):
-            st.rerun()
+    st.markdown("""
+    <style>
+    div[data-testid="stHorizontalBlock"] { flex-wrap: nowrap!important; overflow-x:auto!important; gap:8px!important; }
+    div[data-testid="stHorizontalBlock"]::-webkit-scrollbar{display:none}
+    div[data-testid="column"] { min-width: 56px!important; flex: 0 0 56px!important; }
+    </style>
+    """, unsafe_allow_html=True)
 
-if 'cliente_id' in st.session_state and st.session_state['cliente_id'] is not None:
-    cli = get_cliente_dict(st.session_state['cliente_id'])
-    if cli:
-        st.button("⬅️ Voltar", on_click=lambda: st.session_state.pop('cliente_id'))
-        st.subheader(f"Cliente: {cli['nome']}")
-        tab_dados, tab_mapa_cli, tab_venda = st.tabs(["📝 Dados", "🛰️ Local", "💰 Venda"])
-        with tab_dados:
-            with st.form("edit"):
-                nome = st.text_input("Nome", value=cli['nome'])
-                endereco = st.text_input("Endereço", value=cli['endereco'] or "")
-                whatsapp = st.text_input("WhatsApp", value=cli['whatsapp'] or "")
-                pagamento = st.selectbox("Pagamento", ["Dinheiro", "PIX", "Cartão", "Fiado", "Outro"], index=0)
-                obs_val = cli.get('observacoes') or cli.get('obs') or ""
-                obs = st.text_area("Obs", value=obs_val)
-                col_s, col_d = st.columns(2)
-                with col_s:
-                    if st.form_submit_button("💾 Salvar", type="primary", use_container_width=True):
-                        atualizar_cliente(cli['id'], nome, endereco, whatsapp, pagamento, obs)
-                        st.success("Salvo!"); st.rerun()
-                with col_d:
-                    if st.form_submit_button("🗑️ Excluir", use_container_width=True):
-                        deletar_cliente(cli['id'])
-                        st.session_state.pop('cliente_id')
-                        st.rerun()
-        with tab_mapa_cli:
-            m = mapa_hibrido([cli['lat'] or -29.942, cli['lng'] or -50.99], 16)
-            if cli['lat'] and cli['lng']: adicionar_pino(m, cli['lat'], cli['lng'], cli['id'], cli['nome'], "blue")
-            map_data = st_folium(m, height=400, use_container_width=True, key=f"mapa_cli_{cli['id']}")
-            if map_data and map_data['last_clicked']:
-                if st.button("📍 Salvar esta localização", use_container_width=True):
-                    atualizar_local(cli['id'], map_data['last_clicked']['lat'], map_data['last_clicked']['lng'])
-                    st.success("Local salvo!"); st.rerun()
-        with tab_venda:
-            valor = st.number_input("Valor da venda R$", min_value=0.0, step=10.0)
-            if ja_visitou_hoje(cli['id']):
-                st.success(f"Já visitado - R$ {get_valor_visita_hoje(cli['id']):.2f}")
-                if st.button("❌ Remover visita de hoje", use_container_width=True):
-                    deletar_visita_hoje(cli['id']); st.rerun()
-            else:
-                if st.button("✅ Registrar visita", type="primary", use_container_width=True):
-                    registrar_visita(cli['id'], valor if valor>0 else None)
-                    st.success("Visita registrada!"); st.rerun()
-        st.stop()
+    data_sel = date.fromisoformat(st.session_state['data_agenda'])
+    st.markdown(f"### {data_sel.strftime('%d/%m')} - {['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'][data_sel.weekday()]}")
 
-if st.query_params.get("novo_cliente") == "1":
-    st.session_state['show_novo_cliente'] = True
-    st.query_params.clear(); st.rerun()
-if st.query_params.get("novo_comp") == "1":
-    st.session_state['hora_clicada'] = "08:00"
-    st.session_state['show_novo_comp'] = True
-    st.query_params.clear(); st.rerun()
-if st.session_state.get('show_detalhe_comp'):
-    modal_detalhe_compromisso(st.session_state.get('comp_detalhe_id'))
-elif st.session_state.get('show_novo_cliente'):
-    modal_novo_cliente()
-elif st.session_state.get('show_novo_comp'):
-    data_sel_modal = st.session_state.get('data_agenda_sel', date.today())
-    if isinstance(data_sel_modal, date): data_sel_modal = data_sel_modal.isoformat()
-    modal_novo_compromisso(st.session_state.get('hora_clicada','08:00'), data_sel_modal)
+    compromissos = get_compromissos(st.session_state['data_agenda'])
 
-if st.session_state['pagina'] == 'menu':
-    qtd_hoje, venda_hoje = get_visitas_hoje()
-    qtd_semana, venda_semana = get_visitas_semana()
-    meta_diaria_c = int(get_config('meta_diaria_clientes'))
-    meta_diaria_v = float(get_config('meta_diaria_vendas'))
-    meta_semanal_c = meta_diaria_c * 5
-    meta_semanal_v = meta_diaria_v * 5
-    perc_d_c = min(100, int((qtd_hoje/meta_diaria_c*100) if meta_diaria_c>0 else 0))
-    perc_d_v = min(100, int((venda_hoje/meta_diaria_v*100) if meta_diaria_v>0 else 0))
-    perc_s_c = min(100, int((qtd_semana/meta_semanal_c*100) if meta_semanal_c>0 else 0))
-    perc_s_v = min(100, int((venda_semana/meta_semanal_v*100) if meta_semanal_v>0 else 0))
-    with st.container(border=True):
-        c_tit, c_btn = st.columns([3, 1.3])
-        with c_tit: st.markdown("#### 🎯 Metas")
-        with c_btn:
-            if st.button("🛠️ Planejar", use_container_width=True, type="primary"):
-                modal_config_metas()
-        html_metas = f'''
-        <div style="display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;" id="swipe-metas">
-            <style>
-            #swipe-metas::-webkit-scrollbar{{display:none}}
-        .pg{{min-width:100%; scroll-snap-align:center;}}
-        .box-card{{background:#1e1e1e; border:1px solid #2c2c2c; border-radius:20px; padding:20px; min-height:150px;}}
-        .ttl{{text-align:center; font-weight:800; color:white; font-size:17px; margin-bottom:14px;}}
-        .row{{display:flex; gap:12px;}}
-        .b{{flex:1; background:#2a2a2a; border-radius:14px; padding:16px; border:1px solid #333;}}
-        .lb{{font-size:11px; color:#8a8a8a; font-weight:700; text-transform:uppercase;}}
-        .big{{font-size:24px; color:white; font-weight:900; margin-top:4px;}}
-        .bar{{height:10px; background:#121212; border-radius:99px; margin-top:10px; border:1px solid #333; overflow:hidden;}}
-        .fill{{height:100%; background:#00acc1; border-radius:99px;}}
-            </style>
-            <div class="pg"><div class="box-card"><div class="ttl">🎯 DIÁRIA</div><div class="row"><div class="b"><div class="lb">visitas</div><div class="big">{qtd_hoje}/{meta_diaria_c}</div><div class="bar"><div class="fill" style="width:{perc_d_c}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_d_c}%</div></div><div class="b"><div class="lb">vendas</div><div class="big">R$ {venda_hoje:.0f}/{meta_diaria_v:.0f}</div><div class="bar"><div class="fill" style="width:{perc_d_v}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_d_v}%</div></div></div></div></div>
-            <div class="pg"><div class="box-card"><div class="ttl">📅 SEMANAL</div><div class="row"><div class="b"><div class="lb">visitas</div><div class="big">{qtd_semana}/{meta_semanal_c}</div><div class="bar"><div class="fill" style="width:{perc_s_c}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_s_c}%</div></div><div class="b"><div class="lb">vendas</div><div class="big">R$ {venda_semana:.0f}/{meta_semanal_v:.0f}</div><div class="bar"><div class="fill" style="width:{perc_s_v}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_s_v}%</div></div></div></div></div>
-        </div>
-        <div style="text-align:center; color:#555; font-size:11px; margin-top:10px;">👉 arraste para o lado 👉</div>
-        '''
-        st.components.v1.html(html_metas, height=270, scrolling=False)
-
-if st.session_state['pagina'] == 'clientes':
-    df = get_clientes()
-    busca = st.text_input("🔍 Pesquisar", placeholder="Nome do cliente", key="busca_cli_page")
-    if busca and not df.empty: df = df[df['nome'].str.contains(busca, case=False, na=False)]
-    if df.empty: st.info("Nenhum cliente.")
+    st.markdown('<div class="agenda-container" id="agendaZoom">', unsafe_allow_html=True)
+    if not compromissos:
+        st.info("Nenhum compromisso neste dia.")
     else:
-        for _, row in df.iterrows():
-            visitado = ja_visitou_hoje(int(row['id']))
-            cor_bola = "#00acc1" if visitado else "#3b82f6"
-            with st.container(border=True):
-                st.markdown(f"""<div style="display:flex; justify-content:space-between; align-items:center;"><div><div style="color:white; font-weight:700;">{'✅' if visitado else '⬜'} {row['nome']}</div><div style="color:#8a8a8a; font-size:12px;">{row['endereco'] or 'Sem endereço'}</div></div><div style="width:12px; height:12px; background:{cor_bola}; border-radius:50%;"></div></div>""", unsafe_allow_html=True)
-                if st.button("👁️ Ver / Vender", key=f"ver_{row['id']}", use_container_width=True):
-                    st.session_state['cliente_id'] = int(row['id']); st.rerun()
-    st.markdown("""<a href="?novo_cliente=1" target="_self" style="position: fixed; bottom: 95px; right: 18px; width: 56px; height: 56px; border-radius: 50%; background: #00acc1; color: white; font-size: 32px; display: flex; align-items: center; justify-content: center; text-decoration: none; z-index: 999998;">+</a>""", unsafe_allow_html=True)
+        for comp in compromissos:
+            cor = CORES.get(comp['tipo'], '#f3f4f6')
+            hora = comp['hora_inicio']
+            fim_min = hora_para_minutos(hora) + comp['duracao']
+            fim_h = f"{fim_min//60:02d}:{fim_min%60:02d}"
+            st.markdown(f"""
+            <div style="background:{cor}; border-radius:12px; padding:12px 14px; margin-bottom:10px; border-left:5px solid #2563eb;">
+                <div style="display:flex; justify-content:space-between;">
+                    <b>{hora} - {fim_h} • {comp['tipo'].upper()}</b>
+                    <span style="font-size:12px;">{comp['duracao']}min</span>
+                </div>
+                <div style="margin-top:4px;">{comp['titulo'] or 'Sem título'}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            with c1:
+                nova_hora = st.time_input("Mover", value=datetime.strptime(hora, "%H:%M").time(), key=f"mover_{comp['id']}", label_visibility="collapsed")
+                if st.button("⏰ Atualizar", key=f"upd_{comp['id']}", use_container_width=True):
+                    update_horario(comp['id'], nova_hora.strftime("%H:%M"))
+                    st.toast("Horário atualizado!", icon="✅")
+                    st.rerun()
+            with c2:
+                if st.button("🗑️ Excluir", key=f"del_{comp['id']}", use_container_width=True):
+                    deletar_compromisso(comp['id'])
+                    st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
-if st.session_state['pagina'] == 'mapa':
-    df_all = get_clientes()
-    df_loc = df_all.dropna(subset=['lat', 'lng'])
-    amanha_str = (date.today() + timedelta(days=1)).isoformat()
-    comps_amanha = get_compromissos(amanha_str)
-    ids_amanha = set([c['cliente_id'] for c in comps_amanha if c['cliente_id']])
-    if df_loc.empty:
-        m_geral = mapa_hibrido([-29.942, -50.99], 14)
-        st_folium(m_geral, height=500, use_container_width=True, key="geral_vazio")
-    else:
-        m_geral = mapa_hibrido([df_loc['lat'].mean(), df_loc['lng'].mean()], 14)
-        for _, r in df_loc.iterrows():
-            visitado = ja_visitou_hoje(int(r['id']))
-            cor = "green" if visitado else "blue"
-            tem_amanha = int(r['id']) in ids_amanha
-            adicionar_pino(m_geral, r['lat'], r['lng'], int(r['id']), r['nome'], cor, tem_amanha)
-        st_folium(m_geral, height=500, use_container_width=True, key="geral")
-
-if st.session_state['pagina'] == 'agenda':
-    data_hoje = date.today()
-    data_sel = st.session_state['data_agenda_sel']
-    inicio_semana = data_sel - timedelta(days=data_sel.weekday())
-    fim_semana = inicio_semana + timedelta(days=6)
-    c_ant, c_mid, c_prox = st.columns([1, 3, 1])
-    with c_ant:
-        if st.button("◀️", use_container_width=True, key="sem_ant"):
-            st.session_state['data_agenda_sel'] = inicio_semana - timedelta(days=7); st.rerun()
-    with c_mid:
-        st.markdown(f"<div style='text-align:center; padding:6px; font-weight:800; font-size:13px; background:#1e1e1e; border:1px solid #2c2c2c; border-radius:10px; color:white;'>{inicio_semana.strftime('%d/%m')} - {fim_semana.strftime('%d/%m')}</div>", unsafe_allow_html=True)
-    with c_prox:
-        if st.button("▶️", use_container_width=True, key="sem_prox"):
-            st.session_state['data_agenda_sel'] = inicio_semana + timedelta(days=7); st.rerun()
-    dias_nomes = ["SEG","TER","QUA","QUI","SEX","SAB","DOM"]
-    dias_html = ""
-    for i in range(7):
-        dia = inicio_semana + timedelta(days=i)
-        qtd = len(get_compromissos(dia.isoformat()))
-        is_sel = dia == data_sel
-        bg = "#2c2c2c"
-        color = "white" if is_sel else "#9a9a9a"
-        borda = "2px solid #00acc1" if is_sel else "1px solid #2c2c2c"
-        dias_html += f"""<div class="dia" data-date="{dia.isoformat()}" style="min-width:48px; flex:1; height:62px; background:{bg}; color:{color}; border:{borda}; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer;"><div style="font-size:10px; font-weight:800;">{dias_nomes[i]}</div><div style="font-size:18px; font-weight:900;">{dia.day}</div><div style="font-size:10px;">{'•'*min(qtd,3) if qtd>0 else ''}</div></div>"""
-    data_str = data_sel.isoformat()
-    compromissos = get_compromissos(data_str)
-    compromissos_json = json.dumps(compromissos)
-    zoom_atual = st.session_state.get('zoom_agenda',0)
-    html_code = f"""
-    <div style="background:#1a1a1a; border:1px solid #2c2c2c; border-radius:14px; padding:8px; margin:10px 0 12px 0;"><div id="semana-row" style="display:flex; gap:6px; overflow-x:auto;">{dias_html}</div></div>
-    <div style="display:flex; justify-content:space-between; align-items:center; margin:6px 2px;"><div style="font-size:12px; color:#8a8a8a;">📅 <b style="color:white;">{data_sel.strftime('%A %d/%m')}</b> • pinça 2 dedos pra zoom</div><div style="display:flex; gap:6px;"><button id="btn-zoom-out" style="width:32px; height:32px; border-radius:8px; border:1px solid #333; background:#2c2c2c; color:white;">-</button><button id="btn-zoom-in" style="width:32px; height:32px; border-radius:8px; border:1px solid #333; background:#2c2c2c; color:white;">+</button></div></div>
-    <div id="agenda-container" style="border:1px solid #2c2c2c; border-radius:12px; background:#121212; overflow:hidden; touch-action:pan-y;"><div id="timeline" style="position:relative;"></div></div>
-    <style>.slot{{box-sizing:border-box; border-bottom:1px solid #1e1e1e; display:flex; align-items:center; height:65px;}}.comp-card{{position:absolute; left:62px; right:6px; border-radius:4px; padding:8px 10px; background:#3a3a3a; color:#e8e8e8; border-left:4px solid #00acc1; z-index:10; font-size:12px;}}</style>
+    # JS zoom pinça corrigido
+    components.html("""
     <script>
-    let zoomLevel = {zoom_atual}; const zoomSteps = [15, 30, 60, 120]; const SLOT_H = 65; const comps = {compromissos_json};
-    const borda = {{"visita":"#00acc1","viagem":"#9ca3af","evento":"#a78bfa","outros":"#facc15","almoco":"#fb7185"}}; const labels = {{"visita":"👤","viagem":"🚗","evento":"🎉","outros":"📝","almoco":"🍽️"}};
-    const timeline = document.getElementById('timeline');
-    function horaParaMin(h){{ const [hh,mm]=h.split(':').map(Number); return hh*60+mm; }} function minParaHora(m){{ const hh=Math.floor(m/60); const mm=m%60; return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0'); }}
-    function send(v){{ const input = window.parent.document.querySelector('input[aria-label="drag"]'); if(!input) return; const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; setter.call(input, v); input.dispatchEvent(new Event('input',{{bubbles:true}})); input.dispatchEvent(new Event('change',{{bubbles:true}})); input.dispatchEvent(new KeyboardEvent('keydown',{{bubbles:true, key:'Enter'}})); }}
-    function render(){{ timeline.innerHTML=''; const interval=zoomSteps[zoomLevel]; let h=6,m=0; const slots=[]; while(h<20 || (h==20 && m==0)){{ slots.push(String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')); m+=interval; if(m>=60){{ m=0; h++; }} }} slots.forEach(hor=>{{ const div=document.createElement('div'); div.className='slot'; div.dataset.hora=hor; div.innerHTML=`<div style="width:62px; background:#121212; height:100%; display:flex; align-items:center; justify-content:center; border-right:1px solid #1e1e1e; color:#555; font-size:12px; font-weight:700;">${{hor}}</div><div style="flex:1;"></div>`; div.addEventListener('click',()=>{{ send('NEW|'+hor); }}); timeline.appendChild(div); }}); comps.forEach(c=>{{ const ini=horaParaMin(c.hora_inicio); const top=((ini-6*60)/interval)*SLOT_H; const hh=Math.max(28,(c.duracao/interval)*SLOT_H-4); const fim=ini+c.duracao; const div=document.createElement('div'); div.className='comp-card'; div.style.top=top+'px'; div.style.height=hh+'px'; div.style.borderLeftColor=borda[c.tipo]||'#00acc1'; div.innerHTML=`${{labels[c.tipo]}} ${{c.titulo}} <span style="color:#aaa;">${{c.hora_inicio}} - ${{minParaHora(fim)}}</span>`; let drag=false,sY=0,sT=0,mov=false; div.addEventListener('pointerdown',e=>{{ drag=true; mov=false; sY=e.clientY; sT=parseInt(div.style.top)||0; e.preventDefault(); }}); div.addEventListener('pointermove',e=>{{ if(!drag) return; const diff=e.clientY-sY; if(Math.abs(diff)>6) mov=true; div.style.top=(sT+diff)+'px'; }}); div.addEventListener('pointerup',e=>{{ if(!drag) return; drag=false; if(!mov){{ send('DETAIL|'+c.id); return; }} const newTop=parseInt(div.style.top)||0; let idx=Math.round(newTop/SLOT_H); let newMin=6*60+idx*interval; const newH=minParaHora(newMin); if(newH!==c.hora_inicio) send(c.id+'|'+newH); }}); timeline.appendChild(div); }}); }}
-    document.getElementById('btn-zoom-in').onclick=()=>{{ if(zoomLevel>0){{ zoomLevel--; render(); send('ZOOM|'+zoomLevel); }} }};
-    document.getElementById('btn-zoom-out').onclick=()=>{{ if(zoomLevel<3){{ zoomLevel++; render(); send('ZOOM|'+zoomLevel); }} }};
-    let lastDist=0;
-    timeline.addEventListener('touchstart', (e)=>{{ if(e.touches.length==2){{ lastDist=Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY); }} }}, {{passive:false}});
-    timeline.addEventListener('touchmove', (e)=>{{ if(e.touches.length==2){{ e.preventDefault(); const dist=Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY); if(Math.abs(dist-lastDist)>30){{ if(dist>lastDist && zoomLevel>0) zoomLevel--; else if(dist<lastDist && zoomLevel<3) zoomLevel++; render(); send('ZOOM|'+zoomLevel); lastDist=dist; }} }} }}, {{passive:false}});
-    document.querySelectorAll('.dia').forEach(el=>{{ el.addEventListener('click',()=>{{ send('DATE|'+el.dataset.date); }}); }}); render();
+    const el = window.parent.document.getElementById('agendaZoom');
+    if(el){
+        let scale = 1; let lastDist = 0;
+        el.addEventListener('touchstart', (e)=>{
+            if(e.touches.length==2){
+                lastDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            }
+        });
+        el.addEventListener('touchmove', (e)=>{
+            if(e.touches.length==2){
+                e.preventDefault();
+                const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                scale += (dist - lastDist) * 0.008;
+                scale = Math.min(Math.max(0.6, scale), 3);
+                el.style.transform = `scale(${scale})`;
+                lastDist = dist;
+            }
+        }, {passive:false});
+    }
     </script>
-    """
-    st.components.v1.html(html_code, height=900, scrolling=True)
-    st.markdown("""<a href="?novo_comp=1" target="_self" style="position: fixed; bottom: 95px; right: 18px; width: 56px; height: 56px; border-radius: 50%; background: #00acc1; color: white; font-size: 32px; display: flex; align-items: center; justify-content: center; text-decoration: none; z-index: 999998;">+</a>""", unsafe_allow_html=True)
+    """, height=0)
 
-pag = st.session_state['pagina']
-st.markdown(f"""
-<div style="position: fixed; bottom: 12px; left: 12px; right: 12px; height: 74px; background: #1f1f1f; border: 1px solid #2c2c2c; border-radius: 20px; display: flex; justify-content: space-around; align-items: center; z-index: 9999999; box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
-    <a href="?pagina=menu" target="_self" style="width:56px; height:56px; background:{'#00acc1' if pag=='menu' else '#2c2c2c'}; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:24px; text-decoration:none; color:{'white' if pag=='menu' else '#8a8a8a'};">☰</a>
-    <a href="?pagina=clientes" target="_self" style="width:56px; height:56px; background:{'#00acc1' if pag=='clientes' else '#2c2c2c'}; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:24px; text-decoration:none; color:{'white' if pag=='clientes' else '#8a8a8a'};">👥</a>
-    <a href="?pagina=agenda" target="_self" style="width:56px; height:56px; background:{'#00acc1' if pag=='agenda' else '#2c2c2c'}; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:24px; text-decoration:none; color:{'white' if pag=='agenda' else '#8a8a8a'};">📅</a>
-    <a href="?pagina=mapa" target="_self" style="width:56px; height:56px; background:{'#00acc1' if pag=='mapa' else '#2c2c2c'}; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:24px; text-decoration:none; color:{'white' if pag=='mapa' else '#8a8a8a'};">📍</a>
+    st.divider()
+    if st.button("➕ Novo Compromisso", use_container_width=True, type="primary"):
+        st.session_state['show_novo_comp'] = True
+
+    if st.session_state.get('show_novo_comp'):
+        @st.dialog("Novo Compromisso", width="large")
+        def novo_comp():
+            data = st.date_input("Data", value=data_sel)
+            hora = st.time_input("Hora início", value=datetime.now().time())
+            duracao = st.number_input("Duração (min)", value=60, step=15)
+            tipo = st.selectbox("Tipo", list(CORES.keys()))
+            titulo = st.text_input("Título")
+            clientes = get_clientes()
+            cli_opcoes = {f"{c[1]}": c[0] for c in clientes}
+            cli_sel = st.selectbox("Cliente (opcional)", ["Nenhum"] + list(cli_opcoes.keys()))
+            if st.button("Salvar", type="primary", use_container_width=True):
+                cid = None if cli_sel=="Nenhum" else cli_opcoes[cli_sel]
+                add_compromisso(data.isoformat(), hora.strftime("%H:%M"), duracao, tipo, cid, titulo)
+                st.session_state['show_novo_comp'] = False
+                st.rerun()
+            if st.button("Cancelar", use_container_width=True):
+                st.session_state['show_novo_comp'] = False
+                st.rerun()
+        novo_comp()
+
+def pagina_mapa():
+    st.markdown("## 🗺️ Mapa de Clientes")
+    st.caption("🗺️ Ruas = limpo | 🛰️ Híbrido = satélite. Use 🎯 para ir até você.")
+
+    clientes = get_clientes()
+    clientes_com_loc = [c for c in clientes if c[5] and c[6]]
+
+    if not clientes_com_loc:
+        centro = [-29.942, -50.99]
+    else:
+        centro = [clientes_com_loc[0][5], clientes_com_loc[0][6]]
+
+    m = mapa_hibrido(centro, 13)
+
+    # Adiciona pinos com lógica de cores + amanhã
+    from datetime import date, timedelta
+    amanha = (date.today() + timedelta(days=1)).isoformat()
+    comps_amanha = get_compromissos(amanha)
+    ids_amanha = {c['cliente_id'] for c in comps_amanha if c['cliente_id']}
+
+    for cli in clientes_com_loc:
+        cid, nome, end, whats, pag, lat, lng = cli[0], cli[1], cli[2], cli[3], cli[4], cli[5], cli[6]
+        cor = "green" if ja_visitou_hoje(cid) else "blue"
+        tem_amanha = cid in ids_amanha
+        adicionar_pino(m, lat, lng, cid, nome, cor, tem_amanha)
+
+    st_folium(m, height=600, use_container_width=True, key="mapa_principal")
+
+# --- ROTEAMENTO ---
+if st.session_state['pagina'] == 'menu':
+    pagina_menu()
+elif st.session_state['pagina'] == 'clientes':
+    pagina_clientes()
+elif st.session_state['pagina'] == 'agenda':
+    pagina_agenda()
+elif st.session_state['pagina'] == 'mapa':
+    pagina_mapa()
+
+# FAB Novo Cliente
+if st.query_params.get("novo_cliente") == "1" or st.session_state.get('fab_trigger'):
+    modal_novo_cliente()
+
+# --- BARRA INFERIOR ---
+st.markdown("""
+<div class="bottom-nav">
 </div>
 """, unsafe_allow_html=True)
+
+c1, c2, c3, c4 = st.columns(4)
+with c1:
+    if st.button("🏠\nMenu", use_container_width=True, type="primary" if st.session_state['pagina']=='menu' else "secondary"):
+        st.session_state['pagina']='menu'; st.rerun()
+with c2:
+    if st.button("👥\nClientes", use_container_width=True, type="primary" if st.session_state['pagina']=='clientes' else "secondary"):
+        st.session_state['pagina']='clientes'; st.rerun()
+with c3:
+    if st.button("📅\nAgenda", use_container_width=True, type="primary" if st.session_state['pagina']=='agenda' else "secondary"):
+        st.session_state['pagina']='agenda'; st.rerun()
+with c4:
+    if st.button("🗺️\nMapa", use_container_width=True, type="primary" if st.session_state['pagina']=='mapa' else "secondary"):
+        st.session_state['pagina']='mapa'; st.rerun()
+
+# Botão flutuante +
+st.markdown("""
+<style>
+.fab {
+    position: fixed; bottom: 85px; right: 20px; width: 60px; height: 60px;
+    background: #2563eb; color: white; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; box-shadow: 0 4px 15px rgba(37,99,235,0.4);
+    z-index: 99; cursor: pointer; border: none;
+}
+</style>
+""", unsafe_allow_html=True)
+
+if st.button("＋", key="fab", help="Novo cliente"):
+    modal_novo_cliente()
