@@ -4,21 +4,35 @@ from folium.plugins import LocateControl
 def mapa_hibrido(center, zoom=14):
     m = folium.Map(location=center, zoom_start=zoom, tiles=None, zoom_control=True)
 
-    # Google Maps padrão - ruas nítidas, limpo, sem laranja
-    folium.TileLayer(
+    # 1. Só ruas - Google limpo (igual Waze)
+    ruas = folium.TileLayer(
         tiles='https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
         attr='Google',
-        name='Mapa',
+        name='🗺️ Ruas',
         overlay=False,
-        control=False
-    ).add_to(m)
+        control=True
+    )
+    ruas.add_to(m)
+
+    # 2. Híbrido - Satélite + ruas por cima
+    hibrido = folium.TileLayer(
+        tiles='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+        attr='Google',
+        name='🛰️ Híbrido',
+        overlay=False,
+        control=True
+    )
+    hibrido.add_to(m)
+
+    # Botão de trocar Ruas / Híbrido no canto superior direito
+    folium.LayerControl(position='topright', collapsed=False).add_to(m)
 
     # Botão de localização no canto inferior direito
     LocateControl(
         position='bottomright',
         strings={'title': 'Ir para minha localização'},
         flyTo=True,
-        keepCurrentZoomLevel=False,
+        keepCurrentZoomLevel=True,
         showPopup=False,
         locateOptions={'enableHighAccuracy': True}
     ).add_to(m)
@@ -26,31 +40,31 @@ def mapa_hibrido(center, zoom=14):
     return m
 
 def mapa_satelite(center, zoom=16):
-    # Mapa só pra quando for marcar cliente - já com satélite opcional mas limpo
+    # Usado na criação do cliente
     m = folium.Map(location=center, zoom_start=zoom, tiles=None, zoom_control=True)
+
     folium.TileLayer(
         tiles='https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
         attr='Google',
-        name='Mapa',
-        overlay=False,
-        control=False
-    ).add_to(m)
-    folium.TileLayer(
-        tiles='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-        attr='Google',
-        name='Satelite',
+        name='🗺️ Ruas',
         overlay=False,
         control=True
     ).add_to(m)
-    LocateControl(position='bottomright', flyTo=True, keepCurrentZoomLevel=False).add_to(m)
-    folium.LayerControl().add_to(m)
+
+    folium.TileLayer(
+        tiles='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+        attr='Google',
+        name='🛰️ Híbrido',
+        overlay=False,
+        control=True
+    ).add_to(m)
+
+    folium.LayerControl(position='topright', collapsed=False).add_to(m)
+    LocateControl(position='bottomright', flyTo=True, keepCurrentZoomLevel=True).add_to(m)
     return m
 
 def adicionar_pino(m, lat, lng, cliente_id, nome, cor="blue", tem_amanha=False):
-    if cor == "green":
-        cor_base = "#22c55e"
-    else:
-        cor_base = "#2563eb"
+    cor_base = "#22c55e" if cor == "green" else "#2563eb"
 
     if tem_amanha:
         html = f"""
