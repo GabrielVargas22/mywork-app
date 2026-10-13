@@ -33,7 +33,12 @@ st.markdown("""
 <style>
 .stApp { background-color: #121212!important; }
 #MainMenu, footer, header {visibility: hidden; display:none;}
-.block-container {padding-top: 0px!important; padding-bottom:150px!important;}
+.block-container {padding-top: 0px!important; padding-bottom:150px!important; margin-top:0px!important;}
+/* APERTA TUDO NO MENU E HISTORICO */
+div[data-testid="stVerticalBlock"] { gap: 4px!important; }
+div[data-testid="stVerticalBlockBorderWrapper"] { margin-top:0px!important; margin-bottom:4px!important; padding-top:6px!important; padding-bottom:6px!important;}
+div[data-testid="stContainer"] { padding-top:6px!important; padding-bottom:6px!important; }
+
 input[aria-label="drag"] { display: none!important; }
 div[data-testid="stTextInput"]:has(input[aria-label="drag"]) {
     display: none!important; height: 0!important; margin: 0!important; padding: 0!important;
@@ -41,13 +46,18 @@ div[data-testid="stTextInput"]:has(input[aria-label="drag"]) {
 div[data-testid="stButton"] button[kind="primary"] {
     background-color: #00acc1!important; border-color: #00acc1!important; color: white!important;
 }
-.linha-div { height:1px; background:#2c2c2c; margin:8px 0; }
+div[data-testid="stButton"] button[kind="secondary"] {
+    background-color: #1f1f1f!important; border:1px solid #2c2c2c!important; color:#9a9a9a!important;
+}
+.linha-div { height:1px; background:#2c2c2c; margin:4px 0; }
+/* Select do historico combinando */
+div[data-baseweb="select"] > div { background:#1f1f1f!important; border-color:#2c2c2c!important; color:white!important;}
 </style>
 """, unsafe_allow_html=True)
 
-# Titulo mais pra cima, sem padding grande
+# MyWork colado no topo absoluto
 st.markdown("""
-<h1 style="margin:0; padding-top:0px; margin-top:-10px; color:white; font-weight:800; font-size:26px;">MyWork</h1>
+<h1 style="margin:0; padding:0; margin-top:-18px; margin-bottom:2px; color:white; font-weight:800; font-size:26px; line-height:26px;">MyWork</h1>
 """, unsafe_allow_html=True)
 
 st.text_input("drag", key="drag_result", label_visibility="collapsed")
@@ -313,10 +323,8 @@ elif st.session_state.get('show_novo_comp'):
     if isinstance(data_sel_modal, date): data_sel_modal = data_sel_modal.isoformat()
     modal_novo_compromisso(st.session_state.get('hora_clicada','08:00'), data_sel_modal)
 
-# === MENU COM METAS NO TOPO, ENCOLHIDO ===
 if st.session_state['pagina'] == 'menu':
     st.markdown('<div class="linha-div"></div>', unsafe_allow_html=True)
-
     qtd_hoje, venda_hoje = get_visitas_hoje()
     qtd_semana, venda_semana = get_visitas_semana()
     meta_diaria_c = int(get_config('meta_diaria_clientes'))
@@ -334,27 +342,26 @@ if st.session_state['pagina'] == 'menu':
         <div style="display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;" id="swipe-metas">
             <style>
             #swipe-metas::-webkit-scrollbar{{display:none}}
-           .pg{{min-width:100%; scroll-snap-align:center;}}
-           .box-card{{background:#1e1e1e; border:1px solid #2c2c2c; border-radius:16px; padding:12px; min-height:120px;}}
-           .ttl{{text-align:center; font-weight:800; color:white; font-size:14px; margin-bottom:8px;}}
-           .row{{display:flex; gap:8px;}}
-           .b{{flex:1; background:#2a2a2a; border-radius:12px; padding:10px; border:1px solid #333;}}
-           .lb{{font-size:10px; color:#8a8a8a; font-weight:700; text-transform:uppercase;}}
-           .big{{font-size:20px; color:white; font-weight:900; margin-top:2px;}}
-           .bar{{height:8px; background:#121212; border-radius:99px; margin-top:6px; border:1px solid #333; overflow:hidden;}}
-           .fill{{height:100%; background:#00acc1; border-radius:99px;}}
+          .pg{{min-width:100%; scroll-snap-align:center;}}
+          .box-card{{background:#1e1e1e; border:1px solid #2c2c2c; border-radius:14px; padding:10px; min-height:110px;}}
+          .ttl{{text-align:center; font-weight:800; color:white; font-size:14px; margin-bottom:6px;}}
+          .row{{display:flex; gap:6px;}}
+          .b{{flex:1; background:#2a2a2a; border-radius:10px; padding:8px; border:1px solid #333;}}
+          .lb{{font-size:10px; color:#8a8a8a; font-weight:700; text-transform:uppercase;}}
+          .big{{font-size:20px; color:white; font-weight:900; margin-top:1px;}}
+          .bar{{height:6px; background:#121212; border-radius:99px; margin-top:4px; border:1px solid #333; overflow:hidden;}}
+          .fill{{height:100%; background:#00acc1; border-radius:99px;}}
             </style>
             <div class="pg"><div class="box-card"><div class="ttl">🎯 DIÁRIA</div><div class="row"><div class="b"><div class="lb">visitas</div><div class="big">{qtd_hoje}/{meta_diaria_c}</div><div class="bar"><div class="fill" style="width:{perc_d_c}%;"></div></div></div><div class="b"><div class="lb">vendas</div><div class="big">R$ {venda_hoje:.0f}/{meta_diaria_v:.0f}</div><div class="bar"><div class="fill" style="width:{perc_d_v}%;"></div></div></div></div></div></div>
             <div class="pg"><div class="box-card"><div class="ttl">📅 SEMANAL</div><div class="row"><div class="b"><div class="lb">visitas</div><div class="big">{qtd_semana}/{meta_semanal_c}</div><div class="bar"><div class="fill" style="width:{perc_s_c}%;"></div></div></div><div class="b"><div class="lb">vendas</div><div class="big">R$ {venda_semana:.0f}/{meta_semanal_v:.0f}</div><div class="bar"><div class="fill" style="width:{perc_s_v}%;"></div></div></div></div></div></div>
         </div>
         '''
-        st.components.v1.html(html_metas, height=175, scrolling=False)
+        st.components.v1.html(html_metas, height=158, scrolling=False)
         if st.button("🛠️ Planejar Metas", use_container_width=True, type="primary", key="planejar_topo"):
             modal_config_metas()
 
     st.markdown('<div class="linha-div"></div>', unsafe_allow_html=True)
 
-    # Botão quadrado Histórico no canto superior esquerdo
     col_hist, col_vazio = st.columns([1, 3])
     with col_hist:
         st.markdown("""
@@ -373,8 +380,7 @@ if st.session_state['pagina'] == 'menu':
             st.rerun()
         st.caption("Histórico")
 
-    # Visitas de hoje
-    st.markdown("### 📋 Visitas de hoje")
+    st.markdown("#### 📋 Visitas de hoje")
     df_cli = get_clientes()
     visitas_hoje_lista = []
     if not df_cli.empty:
@@ -387,15 +393,16 @@ if st.session_state['pagina'] == 'menu':
         for row in visitas_hoje_lista:
             st.success(f"✅ {row['nome']} - R$ {get_valor_visita_hoje(int(row['id'])):.2f}")
 
-# === HISTÓRICO COM 1 REGIÃO SÓ ===
 if st.session_state['pagina'] == 'historico':
-    st.markdown("## 📜 Histórico")
-    if st.button("⬅️ Voltar ao Menu", use_container_width=True):
-        st.session_state['pagina'] = 'menu'
-        st.rerun()
-
-    # Apenas 1 região para clicar e listar as opções
-    filtro = st.selectbox("Filtrar por:", ["🕒 Recentes", "🔁 Mais Visitados", "💰 Mais Vendidos"], key="filtro_unico_hist")
+    st.markdown('<div style="margin-top:-14px;"></div>', unsafe_allow_html=True)
+    st.markdown("### 📜 Histórico")
+    c_voltar, c_filtro = st.columns([1, 2])
+    with c_voltar:
+        if st.button("⬅️", use_container_width=True, key="voltar_hist"):
+            st.session_state['pagina'] = 'menu'
+            st.rerun()
+    with c_filtro:
+        filtro = st.selectbox(" ", ["🕒 Recentes", "🔁 Mais Visitados", "💰 Mais Vendidos"], key="filtro_unico_hist", label_visibility="collapsed")
 
     if "Recentes" in filtro:
         st.session_state['filtro_historico'] = 'recentes'
@@ -439,7 +446,7 @@ if st.session_state['pagina'] == 'historico':
                     st.metric("Visitas", item['qtd'])
                 with col_b:
                     st.metric("Total", f"R$ {item['total']:.2f}")
-                if st.button("👁️ Ver", key=f"hist_ver_{item['id']}", use_container_width=True):
+                if st.button("👁️ Ver", key=f"hist_ver_{item['id']}", use_container_width=True, type="secondary"):
                     st.session_state['cliente_id'] = item['id']
                     st.rerun()
 
@@ -454,7 +461,7 @@ if st.session_state['pagina'] == 'clientes':
             cor_bola = "#00acc1" if visitado else "#3b82f6"
             with st.container(border=True):
                 st.markdown(f"""<div style="display:flex; justify-content:space-between; align-items:center;"><div><div style="color:white; font-weight:700;">{'✅' if visitado else '⬜'} {row['nome']}</div><div style="color:#8a8a8a; font-size:12px;">{row['endereco'] or 'Sem endereço'}</div></div><div style="width:12px; height:12px; background:{cor_bola}; border-radius:50%;"></div></div>""", unsafe_allow_html=True)
-                if st.button("👁️ Ver / Vender", key=f"ver_{row['id']}", use_container_width=True):
+                if st.button("👁️ Ver / Vender", key=f"ver_{row['id']}", use_container_width=True, type="secondary"):
                     st.session_state['cliente_id'] = int(row['id']); st.rerun()
     st.markdown("""<a href="?novo_cliente=1" target="_self" style="position: fixed; bottom: 95px; right: 18px; width: 56px; height: 56px; border-radius: 50%; background: #00acc1; color: white; font-size: 32px; display: flex; align-items: center; justify-content: center; text-decoration: none; z-index: 999998;">+</a>""", unsafe_allow_html=True)
 
@@ -481,7 +488,7 @@ if st.session_state['pagina'] == 'agenda':
     data_sel = st.session_state['data_agenda_sel']
     inicio_semana = data_sel - timedelta(days=data_sel.weekday())
     fim_semana = inicio_semana + timedelta(days=6)
-    st.markdown(f"<div style='text-align:center; padding:8px; font-weight:800; font-size:13px; background:#1e1e1e; border:1px solid #2c2c2c; border-radius:10px; color:white; margin-bottom:10px; margin-top:-6px;'>{inicio_semana.strftime('%d/%m')} - {fim_semana.strftime('%d/%m')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center; padding:6px; font-weight:800; font-size:12px; background:#1e1e1e; border:1px solid #2c2c2c; border-radius:10px; color:white; margin-bottom:6px; margin-top:-12px;'>{inicio_semana.strftime('%d/%m')} - {fim_semana.strftime('%d/%m')}</div>", unsafe_allow_html=True)
     dias_nomes = ["SEG","TER","QUA","QUI","SEX","SAB","DOM"]
     dias_html = ""
     for i in range(7):
@@ -491,14 +498,14 @@ if st.session_state['pagina'] == 'agenda':
         bg = "#2c2c2c"
         color = "white" if is_sel else "#9a9a9a"
         borda = "2px solid #00acc1" if is_sel else "1px solid #2c2c2c"
-        dias_html += f"""<div class="dia" data-date="{dia.isoformat()}" style="min-width:48px; flex:1; height:62px; background:{bg}; color:{color}; border:{borda}; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer;"><div style="font-size:10px; font-weight:800;">{dias_nomes[i]}</div><div style="font-size:18px; font-weight:900;">{dia.day}</div><div style="font-size:10px;">{'•'*min(qtd,3) if qtd>0 else ''}</div></div>"""
+        dias_html += f"""<div class="dia" data-date="{dia.isoformat()}" style="min-width:48px; flex:1; height:58px; background:{bg}; color:{color}; border:{borda}; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer;"><div style="font-size:10px; font-weight:800;">{dias_nomes[i]}</div><div style="font-size:18px; font-weight:900;">{dia.day}</div><div style="font-size:10px;">{'•'*min(qtd,3) if qtd>0 else ''}</div></div>"""
     data_str = data_sel.isoformat()
     compromissos = get_compromissos(data_str)
     compromissos_json = json.dumps(compromissos)
     zoom_atual = st.session_state.get('zoom_agenda',0)
     html_code = f"""
-    <div style="background:#1a1a1a; border:1px solid #2c2c2c; border-radius:14px; padding:8px; margin:10px 0 12px 0;"><div id="semana-row" style="display:flex; gap:6px; overflow-x:auto;">{dias_html}</div></div>
-    <div style="display:flex; justify-content:space-between; align-items:center; margin:6px 2px;"><div style="font-size:12px; color:#8a8a8a;">📅 <b style="color:white;">{data_sel.strftime('%A %d/%m')}</b> • pinça 2 dedos pra zoom</div><div style="display:flex; gap:6px;"><button id="btn-zoom-out" style="width:32px; height:32px; border-radius:8px; border:1px solid #333; background:#2c2c2c; color:white;">-</button><button id="btn-zoom-in" style="width:32px; height:32px; border-radius:8px; border:1px solid #333; background:#2c2c2c; color:white;">+</button></div></div>
+    <div style="background:#1a1a1a; border:1px solid #2c2c2c; border-radius:12px; padding:6px; margin:6px 0 8px 0;"><div id="semana-row" style="display:flex; gap:6px; overflow-x:auto;">{dias_html}</div></div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin:4px 2px;"><div style="font-size:12px; color:#8a8a8a;">📅 <b style="color:white;">{data_sel.strftime('%A %d/%m')}</b> • pinça 2 dedos pra zoom</div><div style="display:flex; gap:6px;"><button id="btn-zoom-out" style="width:32px; height:32px; border-radius:8px; border:1px solid #333; background:#2c2c2c; color:white;">-</button><button id="btn-zoom-in" style="width:32px; height:32px; border-radius:8px; border:1px solid #333; background:#2c2c2c; color:white;">+</button></div></div>
     <div id="agenda-container" style="border:1px solid #2c2c2c; border-radius:12px; background:#121212; overflow:hidden; touch-action:pan-y;"><div id="timeline" style="position:relative;"></div></div>
     <style>.slot{{box-sizing:border-box; border-bottom:1px solid #1e1e1e; display:flex; align-items:center; height:65px;}}.comp-card{{position:absolute; left:62px; right:6px; border-radius:4px; padding:8px 10px; background:#3a3a3a; color:#e8e8e8; border-left:4px solid #00acc1; z-index:10; font-size:12px;}}</style>
     <script>
