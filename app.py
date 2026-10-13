@@ -31,6 +31,16 @@ if st.query_params.get("pagina") in ["menu","clientes","agenda","mapa","historic
     st.session_state['pagina'] = st.query_params.get("pagina")
     st.query_params.clear()
 
+# CORREÇÃO DO MAPA - captura o?cliente_id= do popup
+if st.query_params.get("cliente_id"):
+    try:
+        st.session_state['cliente_id'] = int(st.query_params.get("cliente_id"))
+        st.session_state['editando_cliente'] = False
+        st.query_params.clear()
+        st.rerun()
+    except:
+        pass
+
 st.markdown("""
 <style>
 .stApp { background-color: #121212!important; }
@@ -58,9 +68,7 @@ div[data-testid="stDialog"] hr { border-color: #3a3a3a!important; }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-<h1 style="margin:0; padding:0; margin-top:-4px; margin-bottom:4px; color:white; font-weight:800; font-size:26px; line-height:30px;">MyWork</h1>
-""", unsafe_allow_html=True)
+st.markdown("""<h1 style="margin:0; padding:0; margin-top:-4px; margin-bottom:4px; color:white; font-weight:800; font-size:26px; line-height:30px;">MyWork</h1>""", unsafe_allow_html=True)
 
 st.text_input("drag", key="drag_result", label_visibility="collapsed")
 drag_valor_atual = st.session_state.get('drag_result', '')
@@ -175,15 +183,13 @@ def modal_novo_cliente():
                         novo_id = salvar_cliente(nome, endereco, whatsapp, pagamento, obs)
                         if st.session_state['novo_cli_lat'] and st.session_state['novo_cli_lng']:
                             if novo_id:
-                                try:
-                                    atualizar_local(novo_id, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'])
+                                try: atualizar_local(novo_id, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'])
                                 except: pass
                             else:
                                 df_temp = get_clientes()
                                 if not df_temp.empty:
                                     ultimo_id = int(df_temp.sort_values('id').iloc[-1]['id'])
-                                    try:
-                                        atualizar_local(ultimo_id, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'])
+                                    try: atualizar_local(ultimo_id, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'])
                                     except: pass
                     st.session_state['novo_cli_lat'] = None
                     st.session_state['novo_cli_lng'] = None
@@ -298,7 +304,6 @@ def get_ultimas_visitas_lista():
     except:
         return []
 
-# === FICHA DO CLIENTE - SOMENTE LEITURA + BOTAO EDITAR ===
 if 'cliente_id' in st.session_state and st.session_state['cliente_id'] is not None:
     cli = get_cliente_dict(st.session_state['cliente_id'])
     if cli:
@@ -535,19 +540,27 @@ if st.session_state['pagina'] == 'mapa':
             cor = "green" if visitado else "blue"
             tem_amanha = int(r['id']) in ids_amanha
             adicionar_pino(m_geral, r['lat'], r['lng'], int(r['id']), r['nome'], cor, tem_amanha)
+
         map_data_geral = st_folium(m_geral, height=500, use_container_width=True, key="geral")
+
         if map_data_geral:
             clicked_id = None
-            popup = map_data_geral.get('last_object_clicked_popup')
-            tooltip = map_data_geral.get('last_object_clicked_tooltip')
-            if popup:
+            # Tenta pelo tooltip que agora é o ID
+            tooltip_val = map_data_geral.get('last_object_clicked_tooltip')
+            if tooltip_val:
                 try:
-                    clicked_id = int(str(popup).strip().split()[0])
-                except: pass
-            if not clicked_id and tooltip:
-                match = df_all[df_all['nome'] == tooltip]
-                if not match.empty:
-                    clicked_id = int(match.iloc[0]['id'])
+                    clicked_id = int(str(tooltip_val).strip())
+                except:
+                    pass
+            # Fallback pelo popup se tooltip falhar
+            if not clicked_id:
+                popup_val = map_data_geral.get('last_object_clicked_popup')
+                if popup_val:
+                    import re
+                    m = re.search(r'ID:\s*(\d+)', str(popup_val))
+                    if m:
+                        clicked_id = int(m.group(1))
+
             if clicked_id:
                 st.session_state['cliente_id'] = clicked_id
                 st.session_state['editando_cliente'] = False
