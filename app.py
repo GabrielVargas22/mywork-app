@@ -36,27 +36,18 @@ st.markdown("""
 .block-container {padding-top: 0px!important; padding-bottom:150px!important;}
 input[aria-label="drag"] { display: none!important; }
 div[data-testid="stTextInput"]:has(input[aria-label="drag"]) {
-    display: none!important;
-    height: 0!important;
-    margin: 0!important;
-    padding: 0!important;
+    display: none!important; height: 0!important; margin: 0!important; padding: 0!important;
 }
 div[data-testid="stButton"] button[kind="primary"] {
-    background-color: #00acc1!important;
-    border-color: #00acc1!important;
-    color: white!important;
+    background-color: #00acc1!important; border-color: #00acc1!important; color: white!important;
 }
-.linha-div { height:1px; background:#2c2c2c; margin:14px 0; }
-.btn-historico {
-    background:#1e1e1e; border:1px solid #2c2c2c; border-radius:16px;
-    padding:18px; text-align:center; color:white; font-weight:800;
-    font-size:16px;
-}
+.linha-div { height:1px; background:#2c2c2c; margin:8px 0; }
 </style>
 """, unsafe_allow_html=True)
 
+# Titulo mais pra cima, sem padding grande
 st.markdown("""
-<h1 style="margin:0; padding-top:4px; color:white; font-weight:800; font-size:26px;">MyWork</h1>
+<h1 style="margin:0; padding-top:0px; margin-top:-10px; color:white; font-weight:800; font-size:26px;">MyWork</h1>
 """, unsafe_allow_html=True)
 
 st.text_input("drag", key="drag_result", label_visibility="collapsed")
@@ -251,12 +242,10 @@ def modal_config_metas():
         if st.button("Cancelar", use_container_width=True):
             st.rerun()
 
-# === FUNÇÃO PARA HISTÓRICO ===
 def get_historico_dados():
     try:
         conn = sqlite3.connect('banco.db')
         c = conn.cursor()
-        # tenta pegar visitas com valor
         c.execute("SELECT cliente_id, COUNT(*) as qtd, MAX(data) as ultima, SUM(CASE WHEN valor IS NULL THEN 0 ELSE valor END) as total FROM visitas GROUP BY cliente_id")
         dados = {row[0]: {'qtd': row[1], 'ultima': row[2], 'total': row[3]} for row in c.fetchall()}
         conn.close()
@@ -324,9 +313,8 @@ elif st.session_state.get('show_novo_comp'):
     if isinstance(data_sel_modal, date): data_sel_modal = data_sel_modal.isoformat()
     modal_novo_compromisso(st.session_state.get('hora_clicada','08:00'), data_sel_modal)
 
-# === PÁGINA MENU REFEITA COM METAS NO TOPO ===
+# === MENU COM METAS NO TOPO, ENCOLHIDO ===
 if st.session_state['pagina'] == 'menu':
-    # Linha 1 - separa MyWork das metas
     st.markdown('<div class="linha-div"></div>', unsafe_allow_html=True)
 
     qtd_hoje, venda_hoje = get_visitas_hoje()
@@ -340,46 +328,52 @@ if st.session_state['pagina'] == 'menu':
     perc_s_c = min(100, int((qtd_semana/meta_semanal_c*100) if meta_semanal_c>0 else 0))
     perc_s_v = min(100, int((venda_semana/meta_semanal_v*100) if meta_semanal_v>0 else 0))
 
-    # Quadro de metas no topo
     with st.container(border=True):
         st.markdown("#### 🎯 Metas")
         html_metas = f'''
         <div style="display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;" id="swipe-metas">
             <style>
             #swipe-metas::-webkit-scrollbar{{display:none}}
-      .pg{{min-width:100%; scroll-snap-align:center;}}
-      .box-card{{background:#1e1e1e; border:1px solid #2c2c2c; border-radius:20px; padding:20px; min-height:150px;}}
-      .ttl{{text-align:center; font-weight:800; color:white; font-size:17px; margin-bottom:14px;}}
-      .row{{display:flex; gap:12px;}}
-      .b{{flex:1; background:#2a2a2a; border-radius:14px; padding:16px; border:1px solid #333;}}
-      .lb{{font-size:11px; color:#8a8a8a; font-weight:700; text-transform:uppercase;}}
-      .big{{font-size:24px; color:white; font-weight:900; margin-top:4px;}}
-      .bar{{height:10px; background:#121212; border-radius:99px; margin-top:10px; border:1px solid #333; overflow:hidden;}}
-      .fill{{height:100%; background:#00acc1; border-radius:99px;}}
+           .pg{{min-width:100%; scroll-snap-align:center;}}
+           .box-card{{background:#1e1e1e; border:1px solid #2c2c2c; border-radius:16px; padding:12px; min-height:120px;}}
+           .ttl{{text-align:center; font-weight:800; color:white; font-size:14px; margin-bottom:8px;}}
+           .row{{display:flex; gap:8px;}}
+           .b{{flex:1; background:#2a2a2a; border-radius:12px; padding:10px; border:1px solid #333;}}
+           .lb{{font-size:10px; color:#8a8a8a; font-weight:700; text-transform:uppercase;}}
+           .big{{font-size:20px; color:white; font-weight:900; margin-top:2px;}}
+           .bar{{height:8px; background:#121212; border-radius:99px; margin-top:6px; border:1px solid #333; overflow:hidden;}}
+           .fill{{height:100%; background:#00acc1; border-radius:99px;}}
             </style>
-            <div class="pg"><div class="box-card"><div class="ttl">🎯 DIÁRIA</div><div class="row"><div class="b"><div class="lb">visitas</div><div class="big">{qtd_hoje}/{meta_diaria_c}</div><div class="bar"><div class="fill" style="width:{perc_d_c}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_d_c}%</div></div><div class="b"><div class="lb">vendas</div><div class="big">R$ {venda_hoje:.0f}/{meta_diaria_v:.0f}</div><div class="bar"><div class="fill" style="width:{perc_d_v}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_d_v}%</div></div></div></div></div>
-            <div class="pg"><div class="box-card"><div class="ttl">📅 SEMANAL</div><div class="row"><div class="b"><div class="lb">visitas</div><div class="big">{qtd_semana}/{meta_semanal_c}</div><div class="bar"><div class="fill" style="width:{perc_s_c}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_s_c}%</div></div><div class="b"><div class="lb">vendas</div><div class="big">R$ {venda_semana:.0f}/{meta_semanal_v:.0f}</div><div class="bar"><div class="fill" style="width:{perc_s_v}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_s_v}%</div></div></div></div></div>
+            <div class="pg"><div class="box-card"><div class="ttl">🎯 DIÁRIA</div><div class="row"><div class="b"><div class="lb">visitas</div><div class="big">{qtd_hoje}/{meta_diaria_c}</div><div class="bar"><div class="fill" style="width:{perc_d_c}%;"></div></div></div><div class="b"><div class="lb">vendas</div><div class="big">R$ {venda_hoje:.0f}/{meta_diaria_v:.0f}</div><div class="bar"><div class="fill" style="width:{perc_d_v}%;"></div></div></div></div></div></div>
+            <div class="pg"><div class="box-card"><div class="ttl">📅 SEMANAL</div><div class="row"><div class="b"><div class="lb">visitas</div><div class="big">{qtd_semana}/{meta_semanal_c}</div><div class="bar"><div class="fill" style="width:{perc_s_c}%;"></div></div></div><div class="b"><div class="lb">vendas</div><div class="big">R$ {venda_semana:.0f}/{meta_semanal_v:.0f}</div><div class="bar"><div class="fill" style="width:{perc_s_v}%;"></div></div></div></div></div></div>
         </div>
-        <div style="text-align:center; color:#555; font-size:11px; margin-top:10px;">👉 arraste para o lado 👉</div>
         '''
-        st.components.v1.html(html_metas, height=250, scrolling=False)
-
-        # Botão Planejar embaixo do quadro
-        if st.button("🛠️ Planejar Metas", use_container_width=True, type="primary"):
+        st.components.v1.html(html_metas, height=175, scrolling=False)
+        if st.button("🛠️ Planejar Metas", use_container_width=True, type="primary", key="planejar_topo"):
             modal_config_metas()
 
-    # Linha 2 - separa metas do resto
     st.markdown('<div class="linha-div"></div>', unsafe_allow_html=True)
 
-    # Botão quadrado Histórico
-    st.markdown("#### 📊 Histórico")
-    if st.button("📜 Histórico", use_container_width=True, key="btn_hist_quad"):
-        st.session_state['pagina'] = 'historico'
-        st.rerun()
+    # Botão quadrado Histórico no canto superior esquerdo
+    col_hist, col_vazio = st.columns([1, 3])
+    with col_hist:
+        st.markdown("""
+        <style>
+        div[data-testid="column"]:first-child button {
+            width: 72px!important; height: 72px!important;
+            border-radius: 16px!important;
+            background: #1f1f1f!important;
+            border: 1px solid #2c2c2c!important;
+            font-size: 26px!important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        if st.button("📜", key="btn_hist_quad", help="Histórico"):
+            st.session_state['pagina'] = 'historico'
+            st.rerun()
+        st.caption("Histórico")
 
-    st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-
-    # Visitas de hoje (mantido)
+    # Visitas de hoje
     st.markdown("### 📋 Visitas de hoje")
     df_cli = get_clientes()
     visitas_hoje_lista = []
@@ -393,30 +387,27 @@ if st.session_state['pagina'] == 'menu':
         for row in visitas_hoje_lista:
             st.success(f"✅ {row['nome']} - R$ {get_valor_visita_hoje(int(row['id'])):.2f}")
 
-# === NOVA PÁGINA HISTÓRICO ===
+# === HISTÓRICO COM 1 REGIÃO SÓ ===
 if st.session_state['pagina'] == 'historico':
-    st.markdown("## 📜 Histórico de Clientes")
+    st.markdown("## 📜 Histórico")
     if st.button("⬅️ Voltar ao Menu", use_container_width=True):
         st.session_state['pagina'] = 'menu'
         st.rerun()
 
-    # Filtros quadrados
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        if st.button("🕒 Recentes", use_container_width=True, type="primary" if st.session_state['filtro_historico']=='recentes' else "secondary"):
-            st.session_state['filtro_historico'] = 'recentes'; st.rerun()
-    with c2:
-        if st.button("🔁 Mais Visitados", use_container_width=True, type="primary" if st.session_state['filtro_historico']=='visitados' else "secondary"):
-            st.session_state['filtro_historico'] = 'visitados'; st.rerun()
-    with c3:
-        if st.button("💰 Mais Vendidos", use_container_width=True, type="primary" if st.session_state['filtro_historico']=='vendidos' else "secondary"):
-            st.session_state['filtro_historico'] = 'vendidos'; st.rerun()
+    # Apenas 1 região para clicar e listar as opções
+    filtro = st.selectbox("Filtrar por:", ["🕒 Recentes", "🔁 Mais Visitados", "💰 Mais Vendidos"], key="filtro_unico_hist")
+
+    if "Recentes" in filtro:
+        st.session_state['filtro_historico'] = 'recentes'
+    elif "Visitados" in filtro:
+        st.session_state['filtro_historico'] = 'visitados'
+    else:
+        st.session_state['filtro_historico'] = 'vendidos'
 
     st.markdown('<div class="linha-div"></div>', unsafe_allow_html=True)
 
     historico_dados = get_historico_dados()
     df_all = get_clientes()
-
     if df_all.empty:
         st.info("Nenhum cliente cadastrado.")
     else:
@@ -432,8 +423,6 @@ if st.session_state['pagina'] == 'historico':
                 'ultima': info['ultima'] or 'Nunca',
                 'total': info['total'] or 0
             })
-
-        # Ordenação conforme filtro
         if st.session_state['filtro_historico'] == 'recentes':
             lista = sorted(lista, key=lambda x: x['ultima'], reverse=True)
         elif st.session_state['filtro_historico'] == 'visitados':
@@ -449,7 +438,7 @@ if st.session_state['pagina'] == 'historico':
                 with col_a:
                     st.metric("Visitas", item['qtd'])
                 with col_b:
-                    st.metric("Total Vendido", f"R$ {item['total']:.2f}")
+                    st.metric("Total", f"R$ {item['total']:.2f}")
                 if st.button("👁️ Ver", key=f"hist_ver_{item['id']}", use_container_width=True):
                     st.session_state['cliente_id'] = item['id']
                     st.rerun()
