@@ -46,6 +46,13 @@ div[data-baseweb="select"] > div { background:#1f1f1f!important; border-color:#2
 .bloco-visitas { background:#1e1e1e; border:1px solid #2c2c2c; border-radius:14px; max-height:160px; overflow-y:auto; padding:6px; }
 .item-visita { padding:8px 10px; border-bottom:1px solid #2a2a2a; color:white; font-size:13px; display:flex; justify-content:space-between; }
 .item-visita:last-child { border-bottom:none; }
+div[data-testid="stDialog"] { background-color: #2a2a2a!important; }
+div[data-testid="stDialog"] > div { background-color: #2a2a2a!important; }
+[data-testid="stDialog"] div[data-testid="stVerticalBlock"] { background-color: #2a2a2a!important; }
+div[role="dialog"] { background-color: #2a2a2a!important; border:1px solid #3a3a3a!important; }
+div[data-testid="stDialog"] h1, div[data-testid="stDialog"] h2, div[data-testid="stDialog"] h3, div[data-testid="stDialog"] p, div[data-testid="stDialog"] label, div[data-testid="stDialog"] span { color: #e0e0e0!important; }
+div[data-testid="stDialog"] input, div[data-testid="stDialog"] textarea, div[data-testid="stDialog"] div[data-baseweb="select"] > div { background-color: #1f1f1f!important; border-color: #3a3a3a!important; color: white!important; }
+div[data-testid="stDialog"] hr { border-color: #3a3a3a!important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -251,7 +258,6 @@ def get_historico_dados():
         c = conn.cursor()
         c.execute("SELECT cliente_id, COUNT(*) as qtd, MAX(data) as ultima, SUM(CASE WHEN valor IS NULL THEN 0 ELSE valor END) as total FROM visitas GROUP BY cliente_id")
         dados = {row[0]: {'qtd': row[1], 'ultima': row[2], 'total': row[3]} for row in c.fetchall()}
-        # lista crua de visitas recentes
         c.execute("SELECT cliente_id, data, valor FROM visitas ORDER BY data DESC LIMIT 20")
         recentes = c.fetchall()
         conn.close()
@@ -330,7 +336,6 @@ elif st.session_state.get('show_novo_comp'):
     if isinstance(data_sel_modal, date): data_sel_modal = data_sel_modal.isoformat()
     modal_novo_compromisso(st.session_state.get('hora_clicada','08:00'), data_sel_modal)
 
-# === MENU ORGANIZADO ===
 if st.session_state['pagina'] == 'menu':
     st.markdown('<div class="linha-div"></div>', unsafe_allow_html=True)
     qtd_hoje, venda_hoje = get_visitas_hoje()
@@ -343,7 +348,6 @@ if st.session_state['pagina'] == 'menu':
     perc_d_v = min(100, int((venda_hoje/meta_diaria_v*100) if meta_diaria_v>0 else 0))
     perc_s_c = min(100, int((qtd_semana/meta_semanal_c*100) if meta_semanal_c>0 else 0))
     perc_s_v = min(100, int((venda_semana/meta_semanal_v*100) if meta_semanal_v>0 else 0))
-
     with st.container(border=True):
         st.markdown("#### 🎯 Metas")
         html_metas = f'''
@@ -356,10 +360,7 @@ if st.session_state['pagina'] == 'menu':
         st.components.v1.html(html_metas, height=158, scrolling=False)
         if st.button("🛠️ Planejar Metas", use_container_width=True, type="primary", key="planejar_topo"):
             modal_config_metas()
-
     st.markdown('<div class="linha-div"></div>', unsafe_allow_html=True)
-
-    # BLOCO ULTIMAS VISITAS ROLÁVEL
     st.markdown("#### 🕒 Últimas Visitas")
     ultimas = get_ultimas_visitas_lista()
     if not ultimas:
@@ -372,10 +373,7 @@ if st.session_state['pagina'] == 'menu':
             html_lista += f'<div class="item-visita"><span>✅ {nome_ex}</span><span style="color:#8a8a8a; font-size:11px;">{data_v} • {valor_txt}</span></div>'
         html_lista += '</div>'
         st.markdown(html_lista, unsafe_allow_html=True)
-
     st.markdown('<div class="linha-div"></div>', unsafe_allow_html=True)
-
-    # BOTÃO HISTORICO DESCOLADO DA LINHA
     st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
     col_hist, col_vazio = st.columns([1, 3.5])
     with col_hist:
