@@ -123,24 +123,61 @@ def modal_novo_compromisso(hora_pre, data_str):
 @st.dialog("Novo Cliente", width="large")
 def modal_novo_cliente():
     st.markdown("### ➕ Novo Cliente")
+    
+    # Inicializa localização temporária
+    if 'novo_cli_lat' not in st.session_state:
+        st.session_state['novo_cli_lat'] = None
+        st.session_state['novo_cli_lng'] = None
+
     nome = st.text_input("Nome *", placeholder="Ex: Mercado do João", key="fab_nome")
     endereco = st.text_input("Endereço", placeholder="Rua, número, bairro", key="fab_end")
     whatsapp = st.text_input("WhatsApp", placeholder="(51) 99999-9999", key="fab_whats")
     pagamento = st.selectbox("Forma de Pagamento", ["Dinheiro", "PIX", "Cartão", "Fiado", "Outro"], key="fab_pag")
     obs = st.text_area("Observações", placeholder="Ex: Entregar segunda de manhã...", key="fab_obs")
+
     st.divider()
-    st.caption("Após salvar, clique no cliente e vá na aba 🛰️ Local para marcar o ponto no mapa")
+    st.markdown("#### 📍 Localização no mapa")
+    st.caption("Clique no mapa para marcar ou use o botão 🎯 no mapa para ir até você e marcar sua localização atual.")
+
+    # Mapa para escolher local
+    from mapas import mapa_satelite
+    m_novo = mapa_satelite([-29.942, -50.99], 16)
+    
+    # Se já clicou antes, mostra pino
+    if st.session_state['novo_cli_lat'] and st.session_state['novo_cli_lng']:
+        adicionar_pino(m_novo, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'], 0, "Novo cliente", "green")
+        st.success(f"📍 Local marcado: {st.session_state['novo_cli_lat']:.6f}, {st.session_state['novo_cli_lng']:.6f}")
+
+    map_data = st_folium(m_novo, height=350, use_container_width=True, key="mapa_novo_cli")
+
+    if map_data and map_data['last_clicked']:
+        st.session_state['novo_cli_lat'] = map_data['last_clicked']['lat']
+        st.session_state['novo_cli_lng'] = map_data['last_clicked']['lng']
+        st.rerun()
+
+    if st.session_state['novo_cli_lat']:
+        if st.button("❌ Remover localização", use_container_width=True):
+            st.session_state['novo_cli_lat'] = None
+            st.session_state['novo_cli_lng'] = None
+            st.rerun()
+
+    st.divider()
     c1, c2 = st.columns(2)
     with c1:
         if st.button("💾 Salvar Cliente", type="primary", use_container_width=True):
-            if not nome: st.error("Digite o nome")
+            if not nome:
+                st.error("Digite o nome")
             else:
-                salvar_cliente(nome, endereco, whatsapp, pagamento, obs)
+                salvar_cliente(nome, endereco, whatsapp, pagamento, obs, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'])
+                st.session_state['novo_cli_lat'] = None
+                st.session_state['novo_cli_lng'] = None
                 st.session_state['show_novo_cliente'] = False
-                st.toast("Cliente salvo!", icon="✅")
+                st.toast("Cliente salvo com localização!" if st.session_state.get('novo_cli_lat') else "Cliente salvo!", icon="✅")
                 st.rerun()
     with c2:
         if st.button("Cancelar", use_container_width=True):
+            st.session_state['novo_cli_lat'] = None
+            st.session_state['novo_cli_lng'] = None
             st.session_state['show_novo_cliente'] = False
             st.rerun()
 
