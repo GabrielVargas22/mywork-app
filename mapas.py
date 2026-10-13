@@ -76,14 +76,17 @@ def adicionar_pino(m, lat, lng, cliente_id, nome, cor="blue", tem_amanha=False):
     else:
         html = f"""<div style="width:24px; height:24px; background:{cor_base}; border:3px solid white; border-radius:50%; box-shadow:0 2px 8px rgba(0,0,0,0.5);"></div>"""
 
+    # Popup com seu botão + ID escondido para o Streamlit capturar
     popup_html = f"""
     <div style="min-width:160px; font-family:sans-serif;">
         <b style="font-size:13px;">{nome}</b><br>
+        <span style="font-size:11px; color:#666;">ID: {cliente_id}</span><br>
         <a href="?cliente_id={cliente_id}" target="_self" style="display:inline-block; margin-top:8px; background:#2563eb; color:white; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:12px; font-weight:600;">👁️ Ver cliente</a>
     </div>
     """
     folium.Marker(
         location=[lat, lng],
+        tooltip=str(cliente_id),  # ID no tooltip pra detectar clique
         icon=folium.DivIcon(html=html, icon_size=(28,28), icon_anchor=(14,14)),
         popup=folium.Popup(popup_html, max_width=200)
     ).add_to(m)
