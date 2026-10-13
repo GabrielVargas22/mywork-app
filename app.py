@@ -165,12 +165,34 @@ def modal_novo_cliente():
             if not nome:
                 st.error("Digite o nome")
             else:
-                salvar_cliente(nome, endereco, whatsapp, pagamento, obs, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'])
-                st.session_state['novo_cli_lat'] = None
-                st.session_state['novo_cli_lng'] = None
-                st.session_state['show_novo_cliente'] = False
-                st.toast("Cliente salvo!", icon="✅")
-                st.rerun()
+                try:
+                    novo_id = None
+                    # Tenta com 7 parametros
+                    try:
+                        novo_id = salvar_cliente(nome, endereco, whatsapp, pagamento, obs, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'])
+                    except TypeError:
+                        # Cai aqui se seu database.py só aceita 5
+                        novo_id = salvar_cliente(nome, endereco, whatsapp, pagamento, obs)
+                        if st.session_state['novo_cli_lat'] and st.session_state['novo_cli_lng']:
+                            if novo_id:
+                                try:
+                                    atualizar_local(novo_id, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'])
+                                except: pass
+                            else:
+                                # Se não retornou ID, pega o ultimo cliente da lista
+                                df_temp = get_clientes()
+                                if not df_temp.empty:
+                                    ultimo_id = int(df_temp.sort_values('id').iloc[-1]['id'])
+                                    try:
+                                        atualizar_local(ultimo_id, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'])
+                                    except: pass
+                    st.session_state['novo_cli_lat'] = None
+                    st.session_state['novo_cli_lng'] = None
+                    st.session_state['show_novo_cliente'] = False
+                    st.toast("Cliente salvo!", icon="✅")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
     with c2:
         if st.button("Cancelar", use_container_width=True):
             st.session_state['novo_cli_lat'] = None
