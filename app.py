@@ -24,6 +24,8 @@ if 'zoom_agenda' not in st.session_state:
     st.session_state['zoom_agenda'] = 0
 if 'filtro_historico' not in st.session_state:
     st.session_state['filtro_historico'] = 'recentes'
+if 'editando_cliente' not in st.session_state:
+    st.session_state['editando_cliente'] = False
 
 if st.query_params.get("pagina") in ["menu","clientes","agenda","mapa","historico"]:
     st.session_state['pagina'] = st.query_params.get("pagina")
@@ -167,11 +169,9 @@ def modal_novo_cliente():
             else:
                 try:
                     novo_id = None
-                    # Tenta com 7 parametros
                     try:
                         novo_id = salvar_cliente(nome, endereco, whatsapp, pagamento, obs, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'])
                     except TypeError:
-                        # Cai aqui se seu database.py só aceita 5
                         novo_id = salvar_cliente(nome, endereco, whatsapp, pagamento, obs)
                         if st.session_state['novo_cli_lat'] and st.session_state['novo_cli_lng']:
                             if novo_id:
@@ -179,7 +179,6 @@ def modal_novo_cliente():
                                     atualizar_local(novo_id, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'])
                                 except: pass
                             else:
-                                # Se não retornou ID, pega o ultimo cliente da lista
                                 df_temp = get_clientes()
                                 if not df_temp.empty:
                                     ultimo_id = int(df_temp.sort_values('id').iloc[-1]['id'])
@@ -237,6 +236,7 @@ def modal_detalhe_compromisso(comp_id):
             if obs_val: st.info(f"📝 {obs_val}")
             if st.button("👁️ Ver dados completos do cliente", type="primary", use_container_width=True):
                 st.session_state['cliente_id'] = cli['id']
+                st.session_state['editando_cliente'] = False
                 st.session_state['show_detalhe_comp'] = False
                 st.rerun()
     st.divider()
@@ -298,13 +298,68 @@ def get_ultimas_visitas_lista():
     except:
         return []
 
+# === FICHA DO CLIENTE - SOMENTE LEITURA + BOTAO EDITAR ===
 if 'cliente_id' in st.session_state and st.session_state['cliente_id'] is not None:
     cli = get_cliente_dict(st.session_state['cliente_id'])
     if cli:
-        st.button("⬅️ Voltar", on_click=lambda: st.session_state.pop('cliente_id'))
-        st.subheader(f"Cliente: {cli['nome']}")
-        tab_dados, tab_mapa_cli, tab_venda = st.tabs(["📝 Dados", "🛰️ Local", "💰 Venda"])
-        with tab_dados:
+        col_voltar, col_edit = st.columns([1,1])
+        with col_voltar:
+            if st.button("⬅️ Voltar"):
+                st.session_state.pop('cliente_id')
+                st.session_state['editando_cliente'] = False
+                st.rerun()
+        with col_edit:
+            if not st.session_state['editando_cliente']:
+                if st.button("✏️ Editar", use_container_width=True):
+                    st.session_state['editando_cliente'] = True
+                    st.rerun()
+
+        if not st.session_state['editando_cliente']:
+            st.subheader(f"{cli['nome']}")
+            with st.container(border=True):
+                whats_raw = cli['whatsapp'] or ""
+                whats_limpo = "".join(filter(str.isdigit, whats_raw))
+                if len(whats_limpo) >= 10:
+                    numero_wa = whats_limpo
+                    if not numero_wa.startswith("55"):
+                        numero_wa = "55" + numero_wa[-11:]
+                    st.markdown(f"**📱 WhatsApp:** [{whats_raw}](https://wa.me/{numero_wa})")
+                else:
+                    st.markdown(f"**📱 WhatsApp:** {whats_raw or 'Não informado'}")
+
+                end = cli['endereco'] or ""
+                if cli['lat'] and cli['lng']:
+                    maps_link = f"https://www.google.com/maps?q={cli['lat']},{cli['lng']}"
+                    st.markdown(f"**📍 Endereço:** [{end or 'Ver no mapa'}]({maps_link})")
+                elif end:
+                    maps_link = f"https://www.google.com/maps/search/?api=1&query={end.replace(' ', '+')}"
+                    st.markdown(f"**📍 Endereço:** [{end}]({maps_link})")
+                else:
+                    st.markdown("**📍 Endereço:** Não informado")
+
+                st.markdown(f"**💳 Pagamento:** {cli.get('forma_pagamento') or cli.get('pagamento') or 'Não informado'}")
+                obs_val = cli.get('observacoes') or cli.get('obs') or ""
+                if obs_val:
+                    st.info(f"📝 {obs_val}")
+
+                st.divider()
+                st.markdown("#### 💰 Venda / Visita")
+                valor = st.number_input("Valor da venda R$", min_value=0.0, step=10.0, key="valor_venda_readonly")
+                if ja_visitou_hoje(cli['id']):
+                    st.success(f"✅ Já visitado hoje - R$ {get_valor_visita_hoje(cli['id']):.2f}")
+                    if st.button("❌ Remover visita de hoje", use_container_width=True):
+                        deletar_visita_hoje(cli['id']); st.rerun()
+                else:
+                    if st.button("✅ Registrar visita", type="primary", use_container_width=True):
+                        registrar_visita(cli['id'], valor if valor>0 else None)
+                        st.success("Visita registrada!"); st.rerun()
+
+                st.divider()
+                m = mapa_hibrido([cli['lat'] or -29.942, cli['lng'] or -50.99], 16)
+                if cli['lat'] and cli['lng']: adicionar_pino(m, cli['lat'], cli['lng'], cli['id'], cli['nome'], "blue")
+                st_folium(m, height=350, use_container_width=True, key=f"mapa_cli_{cli['id']}")
+        else:
+            st.subheader(f"Editando: {cli['nome']}")
             with st.form("edit"):
                 nome = st.text_input("Nome", value=cli['nome'])
                 endereco = st.text_input("Endereço", value=cli['endereco'] or "")
@@ -316,30 +371,26 @@ if 'cliente_id' in st.session_state and st.session_state['cliente_id'] is not No
                 with col_s:
                     if st.form_submit_button("💾 Salvar", type="primary", use_container_width=True):
                         atualizar_cliente(cli['id'], nome, endereco, whatsapp, pagamento, obs)
+                        st.session_state['editando_cliente'] = False
                         st.success("Salvo!"); st.rerun()
                 with col_d:
-                    if st.form_submit_button("🗑️ Excluir", use_container_width=True):
-                        deletar_cliente(cli['id'])
-                        st.session_state.pop('cliente_id')
+                    if st.form_submit_button("Cancelar", use_container_width=True):
+                        st.session_state['editando_cliente'] = False
                         st.rerun()
-        with tab_mapa_cli:
-            m = mapa_hibrido([cli['lat'] or -29.942, cli['lng'] or -50.99], 16)
-            if cli['lat'] and cli['lng']: adicionar_pino(m, cli['lat'], cli['lng'], cli['id'], cli['nome'], "blue")
-            map_data = st_folium(m, height=400, use_container_width=True, key=f"mapa_cli_{cli['id']}")
-            if map_data and map_data['last_clicked']:
-                if st.button("📍 Salvar esta localização", use_container_width=True):
-                    atualizar_local(cli['id'], map_data['last_clicked']['lat'], map_data['last_clicked']['lng'])
-                    st.success("Local salvo!"); st.rerun()
-        with tab_venda:
-            valor = st.number_input("Valor da venda R$", min_value=0.0, step=10.0)
-            if ja_visitou_hoje(cli['id']):
-                st.success(f"Já visitado - R$ {get_valor_visita_hoje(cli['id']):.2f}")
-                if st.button("❌ Remover visita de hoje", use_container_width=True):
-                    deletar_visita_hoje(cli['id']); st.rerun()
-            else:
-                if st.button("✅ Registrar visita", type="primary", use_container_width=True):
-                    registrar_visita(cli['id'], valor if valor>0 else None)
-                    st.success("Visita registrada!"); st.rerun()
+            with st.container(border=True):
+                st.markdown("#### 📍 Alterar localização")
+                m = mapa_hibrido([cli['lat'] or -29.942, cli['lng'] or -50.99], 16)
+                if cli['lat'] and cli['lng']: adicionar_pino(m, cli['lat'], cli['lng'], cli['id'], cli['nome'], "blue")
+                map_data = st_folium(m, height=400, use_container_width=True, key=f"mapa_cli_edit_{cli['id']}")
+                if map_data and map_data['last_clicked']:
+                    if st.button("📍 Salvar esta localização", use_container_width=True):
+                        atualizar_local(cli['id'], map_data['last_clicked']['lat'], map_data['last_clicked']['lng'])
+                        st.success("Local salvo!"); st.rerun()
+            if st.button("🗑️ Excluir cliente", use_container_width=True):
+                deletar_cliente(cli['id'])
+                st.session_state.pop('cliente_id')
+                st.session_state['editando_cliente'] = False
+                st.rerun()
         st.stop()
 
 if st.query_params.get("novo_cliente") == "1":
@@ -448,6 +499,7 @@ if st.session_state['pagina'] == 'historico':
                     st.metric("Total", f"R$ {item['total']:.2f}")
                 if st.button("👁️ Ver", key=f"hist_ver_{item['id']}", use_container_width=True, type="secondary"):
                     st.session_state['cliente_id'] = item['id']
+                    st.session_state['editando_cliente'] = False
                     st.rerun()
 
 if st.session_state['pagina'] == 'clientes':
@@ -462,7 +514,9 @@ if st.session_state['pagina'] == 'clientes':
             with st.container(border=True):
                 st.markdown(f"""<div style="display:flex; justify-content:space-between; align-items:center;"><div><div style="color:white; font-weight:700;">{'✅' if visitado else '⬜'} {row['nome']}</div><div style="color:#8a8a8a; font-size:12px;">{row['endereco'] or 'Sem endereço'}</div></div><div style="width:12px; height:12px; background:{cor_bola}; border-radius:50%;"></div></div>""", unsafe_allow_html=True)
                 if st.button("👁️ Ver / Vender", key=f"ver_{row['id']}", use_container_width=True, type="secondary"):
-                    st.session_state['cliente_id'] = int(row['id']); st.rerun()
+                    st.session_state['cliente_id'] = int(row['id'])
+                    st.session_state['editando_cliente'] = False
+                    st.rerun()
     st.markdown("""<a href="?novo_cliente=1" target="_self" style="position: fixed; bottom: 95px; right: 18px; width: 56px; height: 56px; border-radius: 50%; background: #00acc1; color: white; font-size: 32px; display: flex; align-items: center; justify-content: center; text-decoration: none; z-index: 999998;">+</a>""", unsafe_allow_html=True)
 
 if st.session_state['pagina'] == 'mapa':
@@ -481,7 +535,23 @@ if st.session_state['pagina'] == 'mapa':
             cor = "green" if visitado else "blue"
             tem_amanha = int(r['id']) in ids_amanha
             adicionar_pino(m_geral, r['lat'], r['lng'], int(r['id']), r['nome'], cor, tem_amanha)
-        st_folium(m_geral, height=500, use_container_width=True, key="geral")
+        map_data_geral = st_folium(m_geral, height=500, use_container_width=True, key="geral")
+        if map_data_geral:
+            clicked_id = None
+            popup = map_data_geral.get('last_object_clicked_popup')
+            tooltip = map_data_geral.get('last_object_clicked_tooltip')
+            if popup:
+                try:
+                    clicked_id = int(str(popup).strip().split()[0])
+                except: pass
+            if not clicked_id and tooltip:
+                match = df_all[df_all['nome'] == tooltip]
+                if not match.empty:
+                    clicked_id = int(match.iloc[0]['id'])
+            if clicked_id:
+                st.session_state['cliente_id'] = clicked_id
+                st.session_state['editando_cliente'] = False
+                st.rerun()
 
 if st.session_state['pagina'] == 'agenda':
     data_hoje = date.today()
