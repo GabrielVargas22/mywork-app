@@ -123,7 +123,7 @@ def modal_novo_compromisso(hora_pre, data_str):
 @st.dialog("Novo Cliente", width="large")
 def modal_novo_cliente():
     st.markdown("### ➕ Novo Cliente")
-    
+
     # Inicializa localização temporária
     if 'novo_cli_lat' not in st.session_state:
         st.session_state['novo_cli_lat'] = None
@@ -142,7 +142,7 @@ def modal_novo_cliente():
     # Mapa para escolher local
     from mapas import mapa_satelite
     m_novo = mapa_satelite([-29.942, -50.99], 16)
-    
+
     # Se já clicou antes, mostra pino
     if st.session_state['novo_cli_lat'] and st.session_state['novo_cli_lng']:
         adicionar_pino(m_novo, st.session_state['novo_cli_lat'], st.session_state['novo_cli_lng'], 0, "Novo cliente", "green")
@@ -336,15 +336,15 @@ if st.session_state['pagina'] == 'menu':
         <div style="display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;" id="swipe-metas">
             <style>
             #swipe-metas::-webkit-scrollbar{{display:none}}
-        .pg{{min-width:100%; scroll-snap-align:center;}}
-        .box-card{{background:#1e1e1e; border:1px solid #2c2c2c; border-radius:20px; padding:20px; min-height:150px;}}
-        .ttl{{text-align:center; font-weight:800; color:white; font-size:17px; margin-bottom:14px;}}
-        .row{{display:flex; gap:12px;}}
-        .b{{flex:1; background:#2a2a2a; border-radius:14px; padding:16px; border:1px solid #333;}}
-        .lb{{font-size:11px; color:#8a8a8a; font-weight:700; text-transform:uppercase;}}
-        .big{{font-size:24px; color:white; font-weight:900; margin-top:4px;}}
-        .bar{{height:10px; background:#121212; border-radius:99px; margin-top:10px; border:1px solid #333; overflow:hidden;}}
-        .fill{{height:100%; background:#00acc1; border-radius:99px;}}
+       .pg{{min-width:100%; scroll-snap-align:center;}}
+       .box-card{{background:#1e1e1e; border:1px solid #2c2c2c; border-radius:20px; padding:20px; min-height:150px;}}
+       .ttl{{text-align:center; font-weight:800; color:white; font-size:17px; margin-bottom:14px;}}
+       .row{{display:flex; gap:12px;}}
+       .b{{flex:1; background:#2a2a2a; border-radius:14px; padding:16px; border:1px solid #333;}}
+       .lb{{font-size:11px; color:#8a8a8a; font-weight:700; text-transform:uppercase;}}
+       .big{{font-size:24px; color:white; font-weight:900; margin-top:4px;}}
+       .bar{{height:10px; background:#121212; border-radius:99px; margin-top:10px; border:1px solid #333; overflow:hidden;}}
+       .fill{{height:100%; background:#00acc1; border-radius:99px;}}
             </style>
             <div class="pg"><div class="box-card"><div class="ttl">🎯 DIÁRIA</div><div class="row"><div class="b"><div class="lb">visitas</div><div class="big">{qtd_hoje}/{meta_diaria_c}</div><div class="bar"><div class="fill" style="width:{perc_d_c}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_d_c}%</div></div><div class="b"><div class="lb">vendas</div><div class="big">R$ {venda_hoje:.0f}/{meta_diaria_v:.0f}</div><div class="bar"><div class="fill" style="width:{perc_d_v}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_d_v}%</div></div></div></div></div>
             <div class="pg"><div class="box-card"><div class="ttl">📅 SEMANAL</div><div class="row"><div class="b"><div class="lb">visitas</div><div class="big">{qtd_semana}/{meta_semanal_c}</div><div class="bar"><div class="fill" style="width:{perc_s_c}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_s_c}%</div></div><div class="b"><div class="lb">vendas</div><div class="big">R$ {venda_semana:.0f}/{meta_semanal_v:.0f}</div><div class="bar"><div class="fill" style="width:{perc_s_v}%;"></div></div><div style="font-size:12px; color:#8a8a8a; margin-top:6px;">{perc_s_v}%</div></div></div></div></div>
@@ -391,15 +391,8 @@ if st.session_state['pagina'] == 'agenda':
     data_sel = st.session_state['data_agenda_sel']
     inicio_semana = data_sel - timedelta(days=data_sel.weekday())
     fim_semana = inicio_semana + timedelta(days=6)
-    c_ant, c_mid, c_prox = st.columns([1, 3, 1])
-    with c_ant:
-        if st.button("◀️", use_container_width=True, key="sem_ant"):
-            st.session_state['data_agenda_sel'] = inicio_semana - timedelta(days=7); st.rerun()
-    with c_mid:
-        st.markdown(f"<div style='text-align:center; padding:6px; font-weight:800; font-size:13px; background:#1e1e1e; border:1px solid #2c2c2c; border-radius:10px; color:white;'>{inicio_semana.strftime('%d/%m')} - {fim_semana.strftime('%d/%m')}</div>", unsafe_allow_html=True)
-    with c_prox:
-        if st.button("▶️", use_container_width=True, key="sem_prox"):
-            st.session_state['data_agenda_sel'] = inicio_semana + timedelta(days=7); st.rerun()
+    # === ALTERAÇÃO 1: SETAS REMOVIDAS, DIAS PUXADOS PRA CIMA ===
+    st.markdown(f"<div style='text-align:center; padding:8px; font-weight:800; font-size:13px; background:#1e1e1e; border:1px solid #2c2c2c; border-radius:10px; color:white; margin-bottom:10px; margin-top:-6px;'>{inicio_semana.strftime('%d/%m')} - {fim_semana.strftime('%d/%m')}</div>", unsafe_allow_html=True)
     dias_nomes = ["SEG","TER","QUA","QUI","SEX","SAB","DOM"]
     dias_html = ""
     for i in range(7):
@@ -430,7 +423,7 @@ if st.session_state['pagina'] == 'agenda':
     document.getElementById('btn-zoom-out').onclick=()=>{{ if(zoomLevel<3){{ zoomLevel++; render(); send('ZOOM|'+zoomLevel); }} }};
     let lastDist=0;
     timeline.addEventListener('touchstart', (e)=>{{ if(e.touches.length==2){{ lastDist=Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY); }} }}, {{passive:false}});
-    timeline.addEventListener('touchmove', (e)=>{{ if(e.touches.length==2){{ e.preventDefault(); const dist=Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY); if(Math.abs(dist-lastDist)>30){{ if(dist>lastDist && zoomLevel>0) zoomLevel--; else if(dist<lastDist && zoomLevel<3) zoomLevel++; render(); send('ZOOM|'+zoomLevel); lastDist=dist; }} }} }}, {{passive:false}});
+    timeline.addEventListener('touchmove', (e)=>{{ if(e.touches.length==2){{ e.preventDefault(); const dist=Math.hypot(e.touches[0].pageX-e.touches[1].pageX, e.touches[0].pageY-e.touches[1].pageY); const diff=dist-lastDist; if(Math.abs(diff)>8){{ if(diff>0 && zoomLevel>0) zoomLevel--; else if(diff<0 && zoomLevel<3) zoomLevel++; render(); send('ZOOM|'+zoomLevel); lastDist=dist; }} }} }}, {{passive:false}});
     document.querySelectorAll('.dia').forEach(el=>{{ el.addEventListener('click',()=>{{ send('DATE|'+el.dataset.date); }}); }}); render();
     </script>
     """
